@@ -69,7 +69,7 @@ class Rules:
         char.update(job=job, kind=data[69], large=data[70], flying=data[71],
                     equipment=list(equipment), personal_abilities=ranks,
                     default_attack=struct.unpack_from("<H",data,67)[0],
-                    passive_ranks={i:rank(i) for i in (76,77,80)},
+                    passive_ranks={i:rank(i) for i in (76,77,78,79,80)},
                     hp_max=char["hp_base"]+100*rank(1),
                     strength=raw[0]+5*rank(2)+effect(201),
                     skill=raw[1]+5*rank(3), dexterity=raw[2]+5*rank(4)+effect(200),

@@ -49,12 +49,27 @@ size_t g3_pcm_read(G3Pcm *p,int16_t *samples,size_t frames) {
     return written;
 }
 
+int g3_pcm_mix(int16_t *samples,size_t frames,G3Pcm *effects,unsigned count) {
+    if(!samples || !effects || frames>4096 || count>4)return 0;
+    int16_t temporary[4096*2];
+    for(unsigned i=0;i<count;i++)if(effects[i].file) {
+        size_t got=g3_pcm_read(&effects[i],temporary,frames);
+        for(size_t j=0;j<got*2;j++) {
+            int v=(int)samples[j]+temporary[j];
+            samples[j]=(int16_t)(v>32767?32767:v< -32768?-32768:v);
+        }
+        if(effects[i].at>=effects[i].bytes)g3_pcm_close(&effects[i]);
+    }
+    return 1;
+}
+
 #ifdef __SWITCH__
 #include <switch.h>
 #include <stdlib.h>
 #include <malloc.h>
 #define AUDIO_FRAMES 4096u
-static G3Pcm music;
+static G3Pcm music,effects[4];
+static unsigned effect_slot;
 static AudioOutBuffer buffers[3];
 static int current=-1,initialized=0;
 void g3_audio_shutdown(void) {
@@ -63,10 +78,13 @@ void g3_audio_shutdown(void) {
     initialized=0;
     for(unsigned i=0;i<3;i++){free(buffers[i].buffer);memset(&buffers[i],0,sizeof(buffers[i]));}
     g3_pcm_close(&music);current=-1;
+    for(unsigned i=0;i<4;i++)g3_pcm_close(&effects[i]);
+    effect_slot=0;
 }
 static int queue(AudioOutBuffer *b) {
     size_t frames=g3_pcm_read(&music,b->buffer,AUDIO_FRAMES);
     if(frames!=AUDIO_FRAMES)return 0;
+    if(!g3_pcm_mix(b->buffer,frames,effects,4))return 0;
     b->data_size=frames*4;
     armDCacheFlush(b->buffer,b->buffer_size);
     return R_SUCCEEDED(audoutAppendAudioOutBuffer(b));
@@ -88,6 +106,14 @@ int g3_audio_set_track(int track) {
     if(R_FAILED(audoutStartAudioOut()))goto fail;
     current=track;return 1;
 fail:g3_audio_shutdown();return 0;
+}
+int g3_audio_play_effect(int effect) {
+    if(!initialized || effect<0 || effect>9999)return 0;
+    unsigned slot=effect_slot++%4;
+    for(unsigned i=0;i<4;i++)if(!effects[i].file){slot=i;break;}
+    g3_pcm_close(&effects[slot]);char path[128];
+    snprintf(path,sizeof(path),"sdmc:/switch/g3nx/audio/sfx%04d.wav",effect);
+    return g3_pcm_open(&effects[slot],path,0);
 }
 void g3_audio_pump(void) {
     if(!initialized)return;

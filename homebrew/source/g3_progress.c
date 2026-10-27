@@ -104,3 +104,10 @@ int g3_progress_save(const G3Progress *s,const char *directory) {
     }
     remove(temporary);return 0;
 }
+
+int g3_progress_valid(const G3Progress *p){return valid(p);}
+uint32_t g3_progress_identity(void){return identity();}
+int g3_progress_encode(uint8_t *out,const G3Progress *p){if(!out || !valid(p))return 0;encode(out,p);return 1;}
+int g3_progress_decode(G3Progress *p,const uint8_t *in){if(!p || !in)return 0;G3Progress c;decode(&c,in);if(!valid(&c))return 0;*p=c;return 1;}
+void g3_story_encode_state(uint8_t *out,const G3Story *p){story_encode(out,p);}
+void g3_story_decode_state(G3Story *p,const uint8_t *in){story_decode(p,in);}

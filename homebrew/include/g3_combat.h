@@ -4,7 +4,7 @@
 #define G3_COMBAT_MAX 22u
 enum { G3_DODGE=1,G3_BLOCK=2,G3_PERFECT_BLOCK=4,G3_UNBLOCKABLE=8 };
 /* Initial, unmounted, small ground units; physical effect kind 0 only.
- * Battle statuses, counterattacks, abilities and original AI/events are absent. */
+ * Active status/counter/ability actions are outside this first-battle physical subset. */
 typedef struct {
     int32_t max_hp,strength,dexterity,armor,power,modifier,accuracy,critical;
     int32_t block_accuracy,block_defense,flags,period,team,attack_id,hits,bonus;
@@ -25,4 +25,6 @@ int g3_combat_moved(G3Combat *combat);
 /* Range/position legality must be checked by the map controller first.
  * Unsupported data or illegal action returns 0 without changing state/RNG. */
 int g3_combat_strike(G3Combat *combat,unsigned target);
+int g3_combat_hostile(int team,int other);
+int g3_combat_packet(G3Combat *combat,unsigned source,unsigned target,unsigned kind);
 #endif

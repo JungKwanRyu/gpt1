@@ -1,6 +1,6 @@
 """Prepare original battle-six assets and bounded physical-combat test data.
 
-AI, battle events/statuses, counterattacks and attack animation are not generated.
+Original first-battle AI profile, event program and OBS animations are generated.
 """
 import argparse
 import hashlib
@@ -13,6 +13,7 @@ from g3_battle import parse_battle, parse_map
 from g3_image import GameImage
 from g3_obs import decode_obs_actions
 from g3_resources import parse_index, read_resource
+from g3_resources import parse_strings
 from g3_rules import Rules
 from prepare_title import HEADER, RECORD
 
@@ -38,14 +39,16 @@ def main():
             raise ValueError("Map exceeds navigation workspace")
         rules = Rules(image)
         characters = {u[0]: rules.initial(image.read(f"G3P1/Chars/{u[0]:04d}.CHR")) for u in battle["units"]}
-        source_data=b"".join(image.read(f"G3P1/Dats/{name}.dat") for name in ("Abi","Job","Item","Attack"))
-        identity = zlib.crc32(raw_map+source_data+json.dumps(characters,sort_keys=True).encode()+b"battle6-combat-layout2")
+        source_data=b"".join(image.read(f"G3P1/Dats/{name}.dat") for name in ("Abi","Job","Item","Attack","AI"))
+        battle_raw=image.read("G3P1/Btls/0006.BTL")
+        texts=parse_strings(image.read("G3P1/Btls/0006.DLG"))
+        identity = zlib.crc32(raw_map+source_data+battle_raw+json.dumps(characters,sort_keys=True).encode()+b"battle6-campaign-layout5")
         assets.append((f"id{identity:08x}",Image.new("RGBA",(1,1))))
         for unit in battle["units"]:
             char = characters[unit[0]]
             if char["large"] or char["flying"]:
                 raise ValueError("Only verified small ground units supported")
-            code.append("    {"+",".join(map(str,(unit[0],char["model"],unit[2],unit[3],unit[4],
+            code.append("    {"+",".join(map(str,(unit[0],char["model"],unit[2],unit[3],unit[6],
                                                   char["movement"],char["hp_max"],char["period"])))+"},")
         code += ["};", "static const G3CombatStats initial_combat[] = {"]
         combat_records=[]
@@ -60,48 +63,106 @@ def main():
             for item in char["equipment"]:
                 if item and item not in (35,88,144,145):
                     raise ValueError("Re-audit equipment ability/effect inheritance")
+            if char["equipment"][1] and main!=off:
+                raise ValueError("First-battle offhand must match the audited main hand")
             ranks=char["passive_ranks"]
+            if ranks[78] or ranks[79]:raise ValueError("Counterattack abilities require a separate action scheduler")
             flags=(bool(ranks[77])*1+bool(ranks[76])*2+bool(ranks[80])*4)
             scales=char["element_scales"]+list(struct.unpack_from("<4H",image.read(f"G3P1/Chars/{unit[0]:04d}.CHR"),105))
             values=(char["hp_max"],char["strength"],char["dexterity"],char["armor"],
                     main["power"],main["modifier"],main["accuracy"],main["critical"],
                     main["accuracy"]+off["accuracy"],main["defense"]+off["defense"],
-                    flags,char["period"],unit[4],attack["id"],attack["hits"],attack["bonus"],
+                    flags,char["period"],unit[6],attack["id"],attack["hits"],attack["bonus"],
                     attack["range"],attack["min_range"],attack["height_cost"],main["element"],attack["secondary"])
             code.append("    {"+",".join(map(str,values))+",{"+",".join(map(str,scales))+"}},")
             combat_records.append(dict(character=unit[0],attack=attack,weapon=main,scales=scales))
-        code += ["};", "static const G3BattleSprite battle_sprites[] = {"]
+        code += ["};", "static const int initial_direction[] = {"+",".join(str(u[4]) for u in battle["units"])+"};",
+                 "static const int initial_ai[] = {"+",".join(str(u[7]) for u in battle["units"])+"};",
+                 "static const int initial_resistance[] = {"+",".join(str(characters[u[0]]["resistance"]) for u in battle["units"])+"};"]
+        sprite_code=["static const G3BattleSprite battle_sprites[] = {"]
+        model_code=["static const G3BattleModel battle_models[] = {"]
         index_path = "G3P1/Obss/Obss.idx"
         index = {r.name:r for r in parse_index(image.read(index_path))}
-        for model in sorted({c["model"] for c in characters.values()}):
+        for model in sorted({c["model"] for c in characters.values()} | {231,291,669,880,796}):
             groups, actions, _ = decode_obs_actions(read_resource(image,index_path,index[f"{model:04d}.obs"],{}))
             records = [r for r in actions[0]["records"] if r[2] == 0]
             if not records:
                 raise ValueError("No original idle image")
+            first=len(assets)
             sprite = groups[0][records[0][4]]
-            code.append(f"    {{{model},{len(assets)},{sprite.x},{sprite.y}}},")
-            assets.append((f"m{model}",Image.frombytes("RGBA",(sprite.width,sprite.height),sprite.rgba())))
-        code += ["};", f"#define G3_BATTLE_HELP {len(assets)}u"]
+            sprite_code.append(f"    {{{model},{first+records[0][4]},{sprite.x},{sprite.y}}},")
+            code.append(f"static const G3BattleFrame frames_{model}[] = {{")
+            offsets=[];total=0
+            for group in groups:offsets.append(total);total+=len(group)
+            for frame,sprite in enumerate(sprite for group in groups for sprite in group):
+                code.append(f"    {{{len(assets)},{sprite.x},{sprite.y}}},")
+                assets.append((f"m{model}f{frame}",Image.frombytes("RGBA",(sprite.width,sprite.height),sprite.rgba())))
+            code.append("};")
+            for ai,a in enumerate(actions):
+                code.append(f"static const G3ObsCommand cmds_{model}_{ai}[] = {{")
+                for r in a["records"]:
+                    r=list(r)
+                    if r[2]==0:r[4]+=offsets[r[3]];r[3]=0
+                    code.append("    {{"+",".join(map(str,r))+"}},")
+                if not a["records"]:code.append("    {{0}},")
+                code.append("};")
+            code.append(f"static const G3ObsAction actions_{model}[] = {{")
+            code.extend(f"    {{{a['duration']}u,{len(a['records'])},cmds_{model}_{ai}}}," for ai,a in enumerate(actions))
+            code.append("};")
+            model_code.append(f"    {{{model},{total},{len(actions)},frames_{model},actions_{model}}},")
+        code += sprite_code+["};"]+model_code+["};", f"#define G3_BATTLE_HELP {len(assets)}u"]
         panel = Image.new("RGBA", (640,68), (10,12,25,245))
         draw = ImageDraw.Draw(panel)
         for row, text in enumerate(("첫 전투 이동 검증 · ZL: 턴/공격 검증 화면으로 전환",
-                                    "방향키: 목적지   A: 이동   L/R: 아군 선택   X: 배치 초기화   B: 돌아가기",
+                                    "방향키: 목적지   A: 이동   L/R: 아군 선택   ZR: 배치 초기화   B: 돌아가기",
                                     "파랑: 이동 가능   노랑: 목적지   겹친 칸 통과 제한 · 원본 지형/이동 비용 사용")):
             draw.text((10,3+row*21),text,font=font,fill=(240,235,215,255))
         assets.append(("help",panel))
         code += [f"#define G3_BATTLE_COMBAT_HELP {len(assets)}u"]
         panel=Image.new("RGBA",(640,68),(10,12,25,245))
         draw=ImageDraw.Draw(panel)
-        for row,text in enumerate(("첫 전투 규칙 검증 · 양 진영 수동 조작 · 적 AI/승패 이벤트/저장은 미구현",
+        for row,text in enumerate(("첫 전투 · 적 자동 행동 · 북쪽 출구 도달 또는 적 섬멸로 승리",
                                     "방향키: 목적지/적 선택   A: 이동/공격   R: 대기   L: 현재 유닛 위치",
-                                    "빨강: 공격 가능   파랑: 이동 가능   X: 초기화   ZL: 이동 검증 전환")):
+                                    "빨강: 공격 가능   파랑: 이동 가능   X: 저장   ZR: 재시작   ZL: 이동 검증 전환")):
             draw.text((10,3+row*21),text,font=font,fill=(240,235,215,255))
         assets.append(("combat",panel))
+        code += [f"#define G3_BATTLE_DIALOG_FIRST {len(assets)}u"]
+        for i,text in enumerate(texts):
+            panel=Image.new("RGBA",(640,120),(15,18,42,242));draw=ImageDraw.Draw(panel)
+            lines=[];line=""
+            for ch in text:
+                if draw.textlength(line+ch,font=font)>600:lines.append(line);line=""
+                line+=ch
+            lines.append(line)
+            if len(lines)>4:raise ValueError("Battle dialogue needs pagination")
+            for row,line in enumerate(lines):draw.text((16,29+row*20),line,font=font,fill=(248,246,226,255))
+            draw.text((16,98),"A: 다음 대사    X: 진행 저장",font=font,fill=(120,230,220,255))
+            assets.append((f"dialog{i}",panel))
+        code += [f"#define G3_BATTLE_NAME_FIRST {len(assets)}u", "static const int battle_names[] = {"+",".join(map(str,characters))+"};"]
+        for number,char in characters.items():
+            panel=Image.new("RGBA",(400,22));ImageDraw.Draw(panel).text((0,0),char["name"],font=font,fill=(95,245,210,255))
+            assets.append((f"name{number}",panel))
+        code += [f"#define G3_BATTLE_END_FIRST {len(assets)}u"]
+        for name,message in (("win","전투 종료 · A: 다음 장면으로"),("loss","아군 부대의 전멸 · ZR: 재시작   B: 메뉴에서 불러오기")):
+            panel=Image.new("RGBA",(640,70),(18,15,32,245));ImageDraw.Draw(panel).text((16,23),message,font=font,fill=(245,230,170,255));assets.append((name,panel))
+        code += [f"#define G3_BATTLE_ASSETS {len(assets)}u"]
         code += [f'#define G3_BATTLE_MAP_SHA "{hashlib.sha256(raw_map).hexdigest()}"']
         code += [f'#define G3_BATTLE_MAP_BYTES {len(raw_map)}u',
                  f'#define G3_BATTLE_MAP_CRC {zlib.crc32(raw_map)}u',
+                 f'#define G3_BATTLE_ID_VALUE {identity}u',
                  f'#define G3_BATTLE_ID "id{identity:08x}"']
         (output/"battle6.obt").write_bytes(raw_map)
+        program=["/* Original BTL 6 event program. */",f"#define G3_BATTLE_EVENTS {len(battle['events'])}u",f"#define G3_BATTLE_TEXTS {len(texts)}u"]
+        for i,event in enumerate(battle["events"]):
+            for key in ("conditions","actions"):
+                program.append(f"static const G3BattleCommand event_{i}_{key}[] = {{")
+                program.extend("    {{"+",".join(map(str,c))+"}}," for c in event[key])
+                if not event[key]:program.append("    {{0}},")
+                program.append("};")
+        program.append("static const G3BattleEventDef battle_events[] = {")
+        program.extend(f"    {{{len(e['conditions'])},{len(e['actions'])},event_{i}_conditions,event_{i}_actions}}," for i,e in enumerate(battle["events"]))
+        program += ["};"]
+        (ROOT/"homebrew/include/g3_battle6_program.h").write_text("\n".join(program)+"\n",encoding="ascii")
     with (output/"g3nx.battle6").open("wb") as stream:
         stream.write(HEADER.pack(b"G3NXRAW1",len(assets),0))
         offset = HEADER.size+RECORD.size*len(assets)
@@ -112,7 +173,7 @@ def main():
         for _,picture in assets:
             stream.write(picture.tobytes())
     (ROOT/"homebrew/include/g3_battle6_data.h").write_text("\n".join(code)+"\n",encoding="ascii")
-    audit = dict(scope="Manual physical-combat/turn workbench; no original AI/events/statuses", characters=characters,
+    audit = dict(scope="First battle 6: original events, profile-1 AI, OBS hit timing and checkpoints", characters=characters,
                  combat=combat_records,
                  battle=battle, map_sha256=hashlib.sha256(raw_map).hexdigest(),
                  evidence={"projection":"10032900/100329A0/10099EA0",

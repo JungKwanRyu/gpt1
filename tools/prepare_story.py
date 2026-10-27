@@ -64,7 +64,7 @@ def prepare_single(args):
             blob=read_resource(image,bgr_idx,bgr[f"{number:04d}.bgr"],cache)
             with Image.open(io.BytesIO(blob)) as original:
                 picture=original.convert("RGBA")
-                if args.field==1: picture=picture.crop((0,0,640,480))
+                if args.field in (1,3): picture=picture.crop((0,0,640,480))
                 backgrounds[number]=asset(f"bg{number:04d}",picture)
         portraits={}
         for number in sorted({a[1] for event in program["events"] for a in event["actions"] if a[0] in (200,201,202)}):
@@ -110,6 +110,7 @@ def prepare_single(args):
 
     boundary=("첫 장면의 대화가 끝났습니다.\nA를 누르면 네 인물이 이동하는 다음 장면을 진행합니다.\nB로 에피소드 선택 화면으로 돌아갈 수 있습니다." if args.field==1 else
               "이동 장면이 끝났습니다.\nA: 첫 전투 턴·공격 검증 화면으로 진행합니다.\n양 진영 수동 조작 · 적 AI·승패는 미구현입니다.")
+    if args.field==3:boundary="첫 전투 뒤의 장면이 끝났습니다.\n다음 전투(219)는 후속 콘텐츠 범위입니다.\nB로 에피소드 선택 화면으로 돌아갈 수 있습니다."
     for label,message in (("boundary",boundary),
                           ("unsupported","아직 지원하지 않는 이벤트 또는 자산에 도달했습니다.\n원본 명령을 건너뛰지 않고 진행을 멈췄습니다.\nB로 에피소드 선택 화면으로 돌아갈 수 있습니다.")):
         panel=Image.new("RGBA",(640,480),(0,0,0,155))
@@ -133,6 +134,7 @@ def prepare_single(args):
     code=[f"/* Generated from original field {args.field}. Regenerate with tools/prepare_story.py. */",
           "#ifndef G3_STORY_DATA_H","#define G3_STORY_DATA_H",
           f"#define G3_STORY_ID {identity}u",f"#define G3_STORY_ASSETS {len(images)}u",
+          f"#define G3_STORY_BACKGROUND {program['header'][0]}",
           f"#define G3_STORY_BOUNDARY_ASSET {len(images)-2}",f"#define G3_STORY_ERROR_ASSET {len(images)-1}"]
     for i,event in enumerate(program["events"]):
         for label in ("conditions","actions"):
@@ -152,7 +154,7 @@ def prepare_single(args):
         for key,value in items:
             code.append("    {"+(f"{value[0]}, {value[1]}" if name=="texts" else f"{key}, {value}")+"},")
         code.append("};")
-    if args.field!=1:
+    if args.field==2:
         code.append(f"#define G3_FIELD_NUMBER {args.field}")
         code.append(f"#define G3_FIELD_BACKGROUND {program['header'][0]}")
         code.append(f"#define G3_FIELD_ACTORS {len(program['actors'])}u")
@@ -182,7 +184,7 @@ def prepare_single(args):
     (ROOT/("homebrew/include/g3_story_data.h" if args.field==1 else f"homebrew/include/g3_field{args.field}_data.h")).write_text("\n".join(code)+"\n",encoding="ascii")
     manifest={"id":identity,"field":args.field,"assets":len(images),"texts":len(texts),"pages":pages,
               "backgrounds":backgrounds,"portraits":portraits,"events":program["events"],
-              "next_stage":{"kind":"field" if args.field==1 else "battle","id":2 if args.field==1 else 6},
+              "next_stage":{"kind":"field" if args.field==1 else "battle","id":2 if args.field==1 else (219 if args.field==3 else 6)},
               "actors":program["actors"],"scope":"Shivan dialogue and scripted movement; no battle runtime"}
     (output/("g3nx.story.json" if args.field==1 else f"g3nx.field{args.field}.json")).write_text(json.dumps(manifest,indent=2),encoding="utf-8")
     print(f"Prepared field {args.field}: {len(images)} assets, {len(texts)} text entries, {path.stat().st_size:,} bytes")
@@ -192,7 +194,7 @@ def main():
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument("image",type=Path)
     parser.add_argument("--font",type=Path,default=Path("C:/Windows/Fonts/malgun.ttf"))
-    parser.add_argument("--field",type=int,choices=(1,2),default=1)
+    parser.add_argument("--field",type=int,choices=(1,2,3),default=1)
     prepare_single(parser.parse_args())
 
 

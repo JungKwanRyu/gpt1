@@ -16,7 +16,8 @@ class PackageTests(unittest.TestCase):
         folder=root/'dist/switch/g3nx'
         files=('g3nx.nro','g3nx.title','g3nx.story','g3nx.field2',
                'audio/manifest.json','audio/bgm0035.wav','audio/bgm0042.wav')
-        if version in ('0.5.0','0.6.0'):files+=('g3nx.battle6','battle6.obt')
+        if version in ('0.5.0','0.6.0','0.7.0'):files+=('g3nx.battle6','battle6.obt')
+        if version=='0.7.0':files+=('g3nx.field3','audio/bgm0003.wav','audio/bgm0006.wav','audio/effects.json',*(f'audio/sfx{i:04d}.wav' for i in (11,15,16,22,23,26,43,96,1902,1903,1996)))
         report={'version':version,'runtime_files':{}}
         for name in files:
             path=folder/name;path.parent.mkdir(parents=True,exist_ok=True)
@@ -52,7 +53,7 @@ class PackageTests(unittest.TestCase):
                 with patch.object(package_release,'ROOT',root),self.assertRaises(ValueError):package_release.main()
 
     def test_navigation_package_includes_map_and_sprites(self):
-        for version in ('0.5.0','0.6.0'):
+        for version in ('0.5.0','0.6.0','0.7.0'):
             with tempfile.TemporaryDirectory() as d:
                 root=Path(d);_,report=self.fixture(root,version)
                 with patch.object(package_release,'ROOT',root),redirect_stdout(io.StringIO()):package_release.main()
@@ -61,8 +62,8 @@ class PackageTests(unittest.TestCase):
                     self.assertEqual(set(archive.namelist()),{'switch/g3nx/'+n for n in (*report['runtime_files'],'README.txt','build-report.json')})
 
     def test_navigation_assets_cannot_be_omitted_or_modified(self):
-        for version in ('0.5.0','0.6.0'):
-            for name in ('g3nx.battle6','battle6.obt'):
+        for version in ('0.5.0','0.6.0','0.7.0'):
+            for name in (('g3nx.battle6','battle6.obt','g3nx.field3','audio/effects.json','audio/sfx0011.wav','audio/bgm0006.wav') if version=='0.7.0' else ('g3nx.battle6','battle6.obt')):
                 for corrupt in (False,True):
                     with tempfile.TemporaryDirectory() as d:
                         root=Path(d);folder,report=self.fixture(root,version)

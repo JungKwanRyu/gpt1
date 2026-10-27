@@ -10,7 +10,10 @@ typedef struct {
 } G3Event;
 typedef struct { int id, asset; } G3ResourceMap;
 typedef struct { unsigned first, count; } G3TextPages;
-#include "g3_story_data.h"
+#ifndef G3_STORY_DATA_HEADER
+#define G3_STORY_DATA_HEADER "g3_story_data.h"
+#endif
+#include G3_STORY_DATA_HEADER
 
 uint32_t g3_story_identity(void) { return G3_STORY_ID; }
 unsigned g3_story_asset_count(void) { return G3_STORY_ASSETS; }
@@ -31,7 +34,7 @@ int g3_story_asset(int kind, int id, int page) {
 }
 void g3_story_init(G3Story *s) {
     memset(s,0,sizeof(*s));
-    s->active=0; s->background=137;
+    s->active=0; s->background=G3_STORY_BACKGROUND;
     s->left=s->right=s->center=s->dialog=s->track=-1;
     s->enabled[0]=1;
 }

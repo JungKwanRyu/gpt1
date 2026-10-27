@@ -20,6 +20,7 @@ class AudioTests(unittest.TestCase):
         cls.lib.g3_pcm_close.argtypes=[C.POINTER(Pcm)]
         cls.lib.g3_pcm_read.argtypes=[C.POINTER(Pcm),C.POINTER(C.c_int16),C.c_size_t]
         cls.lib.g3_pcm_read.restype=C.c_size_t
+        cls.lib.g3_pcm_mix.argtypes=[C.POINTER(C.c_int16),C.c_size_t,C.POINTER(Pcm),C.c_uint]
 
     def wav(self,rate=48000):
         out=io.BytesIO()
@@ -51,8 +52,21 @@ class AudioTests(unittest.TestCase):
                 self.assertEqual(self.lib.g3_pcm_open(C.byref(pcm),str(path).encode(),0),0)
                 self.assertFalse(pcm.file)
 
+    def test_effect_mixing_saturates_and_closes_finite_stream(self):
+        with tempfile.TemporaryDirectory() as d:
+            path=Path(d,'effect.wav');path.write_bytes(self.wav())
+            effects=(Pcm*4)()
+            self.assertEqual(self.lib.g3_pcm_open(C.byref(effects[0]),str(path).encode(),0),1)
+            output=(C.c_int16*8)(100,-100,1000,-1000,2,3,111,222)
+            self.assertEqual(self.lib.g3_pcm_mix(output,4,effects,4),1)
+            self.assertEqual(list(output),[101,-101,32767,-32768,9,12,111,222])
+            self.assertFalse(effects[0].file)
+            before=bytes(output)
+            self.assertEqual(self.lib.g3_pcm_mix(output,4097,effects,4),0)
+            self.assertEqual(bytes(output),before)
+
     def test_original_music_conversion_matches_wave_reader(self):
-        for track in (35,42):
+        for track in (3,6,35,42):
             path=Path(f'dist/switch/g3nx/audio/bgm{track:04d}.wav')
             pcm=Pcm();self.assertEqual(self.lib.g3_pcm_open(C.byref(pcm),str(path).encode(),1),1)
             try:

@@ -14,10 +14,11 @@ def main():
     if runtime is None:
         runtime={"g3nx.nro":report,"g3nx.title":report["assets"],"g3nx.story":report["story"]}
     required={"g3nx.nro","g3nx.title","g3nx.story"}
-    if report["version"] in ("0.4.0","0.5.0","0.6.0"):
+    if report["version"] in ("0.4.0","0.5.0","0.6.0","0.7.0"):
         required.update(("g3nx.field2","audio/manifest.json","audio/bgm0035.wav","audio/bgm0042.wav"))
-    if report["version"] in ("0.5.0","0.6.0"):
+    if report["version"] in ("0.5.0","0.6.0","0.7.0"):
         required.update(("g3nx.battle6","battle6.obt"))
+    if report["version"]=="0.7.0":required.update(("g3nx.field3","audio/bgm0003.wav","audio/bgm0006.wav","audio/effects.json",*(f"audio/sfx{i:04d}.wav" for i in (11,15,16,22,23,26,43,96,1902,1903,1996))))
     if not required.issubset(runtime):raise ValueError("Build report omits required runtime files")
     for name,expected in runtime.items():
         if not name or "\\" in name or Path(name).is_absolute() or ".." in Path(name).parts:

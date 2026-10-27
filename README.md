@@ -2,9 +2,10 @@
 
 원본 게임 데이터를 분석해 Nintendo Switch 홈브루용 C/libnx 실행기를 작성하는 작업입니다.
 
-**현재 0.6.0은 전체 게임 이식판이 아닙니다.** 첫 전투 지도에서 행동 주기·진영별 턴, 한 번의 이동과 기본 물리 공격, 다중 타격·치명타·HP 감소·전투불능을 검증할 수 있습니다. **양 진영을 수동 조작**하며 원본 적 AI·승패 이벤트는 미구현입니다. 전투 상태·반격·특수 능력·공격 애니메이션·전투 저장, 일반 필드 자유 이동·후속 스토리·음성·효과음·동영상도 남아 있습니다.
+**현재 0.7.0은 첫 전투와 전투 저장을 포함한 시험판입니다.** 적 AI, 원본 전투 대사·출구/전멸 조건, 공격·피격 애니메이션과 효과음, 전투 후 장면을 연결했습니다. 이동·공격·효과 재생 중에도 저장하고 같은 상태로 이어갈 수 있습니다. 원본 전체 게임의 이식이나 PC판과의 완전한 일치·새 전투의 Switch 실기 검증을 완료한 것은 아닙니다.
 
-- [현재 버전 설치·동작·미구현 범위](docs/COMBAT_0_6_0.ko.md)
+- [현재 버전 설치·동작·미구현 범위](docs/BATTLE_0_7_0.ko.md)
+- [이전 0.6.0 기록](docs/COMBAT_0_6_0.ko.md)
 - [이전 0.5.0 기록](docs/NAVIGATION_0_5_0.ko.md)
 - [이전 0.4.0 기록](docs/SCENARIO_0_4_0.ko.md)
 - [이전 0.3.0 기록](docs/SCENARIO_0_3_0.ko.md)
@@ -28,9 +29,10 @@ Python 3.12, 필요한 Python 라이브러리, FFmpeg, devkitA64/libnx/switch-to
 python -m pip install -r tools/requirements-reverse.txt
 python tools/prepare_story.py Store/image.img
 python tools/prepare_story.py Store/image.img --field 2
+python tools/prepare_story.py Store/image.img --field 3
 python tools/prepare_battle.py Store/image.img --font "C:/Windows/Fonts/malgun.ttf"
 python tools/prepare_title.py Store/image.img
-python tools/prepare_audio.py Store/image.img --tracks 35 42
+python tools/prepare_audio.py Store/image.img --tracks 3 6 35 42 --battle-effects
 python tools/build_switch.py --toolchain "C:/devkitPro"
 python tools/package_release.py
 ```
@@ -49,4 +51,4 @@ python -m unittest discover -s tools -p "test_*.py"
 python tools/analyze_battle.py Store/image.img
 ```
 
-사용자가 기존 버전의 Switch 음악 출력과 캐릭터 이동을 확인했습니다. 새 0.6.0의 호스트 검사 66개와 Switch 빌드를 통과했습니다. 새 턴·공격 기능은 실기 미검증입니다. 원본과 동일한 첫 전투 완료와 요청한 5단계 전체 완료는 미달성입니다.
+사용자가 기존 버전의 Switch 음악 출력과 캐릭터 이동을 확인했습니다. 새 전투의 검증에는 원래 배치를 유지한 적 AI/출구 승리 플레이, 전투 중 저장 후 동일 상태 재실행, 다음 장면 전체 대사 검사, ASan/UBSan 및 Switch 빌드 검사를 사용합니다. 실기와 원본 PC 대조의 한계는 [0.7.0 검증 범위](docs/BATTLE_0_7_0.ko.md)를 참고하세요.

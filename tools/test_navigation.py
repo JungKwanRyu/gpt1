@@ -20,12 +20,23 @@ class Unit(C.Structure):
     _fields_ = [(key,C.c_int32) for key in ("character","model","x","y","team","movement","hp","period")]
 
 
+class BattleEvents(C.Structure):
+    _fields_=[(name,C.c_int32) for name in ('active','pc','dialog','speaker','wait','outcome','ready','intro_done','match_unit','error')]+[(name,C.c_uint8*16) for name in ('enabled','finished')]
+
+
+class Effect(C.Structure):
+    _fields_=[(n,C.c_int32) for n in "model action clock anchor dx dy dz mirror".split()]
+
+
 class Navigation(C.Structure):
     _fields_ = [("map_data",C.c_void_p),("map",NativeMap),("pack",Pack),
-               ("images",C.c_void_p*10),("units",Unit*22),("remaining",C.c_int32*22),
+               ("images",C.c_void_p),("units",Unit*22),("remaining",C.c_int32*22),
                ("selected",C.c_int32),("cursor_x",C.c_int32),("cursor_y",C.c_int32),
                ("cost",C.c_int32*4096),("predecessor",C.c_int32*4096),
-               ("combat",Combat),("combat_mode",C.c_int32),("active_clock",C.c_uint32)]
+               ("combat",Combat),("combat_mode",C.c_int32),("active_clock",C.c_uint32),("events",BattleEvents),
+               *[(name,C.c_int32*22) for name in ('direction','action','clock')],
+               *[(name,C.c_int32) for name in ('motion','source','target','time','duration','path_count','path_index','step_time','origin_x','origin_y')],
+               ('path',C.c_int32*64),('ai_enabled',C.c_int32),('ai_delay',C.c_int32),('effects',Effect*16)]
 
 
 class NavigationTests(unittest.TestCase):
@@ -42,6 +53,7 @@ class NavigationTests(unittest.TestCase):
         cls.lib.g3_navigation_reset.argtypes=[C.POINTER(Navigation)]
         cls.lib.g3_navigation_input.argtypes=[C.POINTER(Navigation),C.c_uint]
         cls.lib.g3_navigation_render.argtypes=[C.POINTER(Navigation),C.c_void_p,C.c_size_t]
+        cls.lib.g3_navigation_tick.argtypes=[C.POINTER(Navigation)]
         cls.lib.g3_navigation_attackable.argtypes=[C.POINTER(Navigation),C.c_uint]
 
     def fixture(self,heights,attributes):
@@ -97,8 +109,21 @@ class NavigationTests(unittest.TestCase):
         n=Navigation()
         self.assertEqual(self.lib.g3_navigation_open(C.byref(n),b"dist/switch/g3nx"),1)
         self.addCleanup(self.lib.g3_navigation_close,C.byref(n))
+        if combat:
+            n.ai_enabled=0
+            for _ in range(10):
+                if n.events.ready:break
+                self.assertEqual(self.lib.g3_navigation_input(C.byref(n),16),1)
+            self.assertTrue(n.events.ready)
         if not combat:self.assertEqual(self.lib.g3_navigation_input(C.byref(n),1024),1)
         return n
+
+    def settle(self,n):
+        for _ in range(500):
+            if not n.motion:return
+            if n.events.wait:self.assertEqual(self.lib.g3_navigation_input(C.byref(n),16),1)
+            self.assertEqual(self.lib.g3_navigation_tick(C.byref(n)),1)
+        self.fail('Animation did not finish')
 
     def test_manual_combat_entry_wait_focus_and_mode_reset(self):
         n=self.open_navigation(combat=True)
@@ -124,6 +149,7 @@ class NavigationTests(unittest.TestCase):
         n.cursor_x,n.cursor_y=38,34
         before=n.combat.hp[4]
         self.assertEqual(self.lib.g3_navigation_input(C.byref(n),16),1)
+        self.settle(n)
         self.assertLess(n.combat.hp[4],before)
         self.assertEqual(n.units[4].hp,n.combat.hp[4])
         self.assertEqual((n.combat.last_source,n.combat.last_target),(1,4))
@@ -141,9 +167,11 @@ class NavigationTests(unittest.TestCase):
         n=self.open_navigation(combat=True)
         # Marzana can move west onto a free original ground cell.
         self.lib.g3_navigation_input(C.byref(n),4|16)
+        self.settle(n)
         self.assertEqual((n.units[1].x,n.remaining[1],n.combat.move[1]),(39,0,0))
         before=(n.units[1].x,n.units[1].y)
         self.lib.g3_navigation_input(C.byref(n),4|16)
+        self.settle(n)
         self.assertEqual((n.units[1].x,n.units[1].y),before)
         out=C.create_string_buffer(640*480*4)
         self.assertEqual(self.lib.g3_navigation_render(C.byref(n),out,len(out)),1)
@@ -155,7 +183,7 @@ class NavigationTests(unittest.TestCase):
         n.combat.hp[:]=[0]*22
         n.combat.hp[0]=1000;n.combat.hp[4]=300
         n.combat.stats[0].period=2
-        n.combat.clock=2;n.combat.phase=1;n.combat.active=0
+        n.combat.clock=2;n.combat.phase=4;n.combat.active=0
         n.selected=0;n.active_clock=2;n.remaining[0]=0
         n.combat.move[0]=0;n.combat.attack[0]=1
         self.lib.g3_navigation_input(C.byref(n),256)

@@ -11,7 +11,7 @@ int32_t g3_combat_morale_stat(int32_t stat,int32_t morale) {
 }
 static int supported(const G3CombatStats *s) {
     if(s->max_hp<=0 || s->max_hp>1000000 || s->period<2 || s->period>255 ||
-       s->team<1 || s->team>2 || s->hits<1 || s->hits>16 || s->critical<0 || s->critical>100 ||
+       (s->team!=0 && s->team!=3 && s->team!=4) || s->hits<1 || s->hits>16 || s->critical<0 || s->critical>100 ||
        s->flags<0 || s->flags>15 || s->range<0 || s->range>100 ||
        s->element<0 || s->element>5 || s->secondary<0 || s->secondary>4 ||
        s->min_range<0 || s->min_range>s->range ||
@@ -30,7 +30,7 @@ int g3_combat_next(G3Combat *c) {
     int teams=0;
     for(unsigned i=0;i<c->count;i++)if(c->hp[i]>0)teams|=1<<c->stats[i].team;
     /* Workbench termination, NOT the original BTL win/loss event. */
-    if(teams!=6){c->active=-1;c->status=1;return 1;}
+    if(!(teams&1) || !(teams&16)){c->active=-1;c->status=1;return 1;}
     for(unsigned ticks=0;ticks<=255;ticks++) {
         unsigned start=c->active<0?0:(unsigned)c->active;
         for(unsigned phase=0;phase<5;phase++) {
@@ -71,7 +71,7 @@ int g3_combat_moved(G3Combat *c) {
 int g3_combat_strike(G3Combat *c,unsigned target) {
     if(!running(c) || c->active<0 || (unsigned)c->active>=c->count || target>=c->count ||
        target==(unsigned)c->active || c->hp[target]<=0 || !c->attack[c->active] ||
-       c->stats[target].team==c->stats[c->active].team)return 0;
+       !g3_combat_hostile(c->stats[c->active].team,c->stats[target].team))return 0;
     unsigned source=(unsigned)c->active;
     const G3CombatStats *a=&c->stats[source],*d=&c->stats[target];
     if(!supported(a) || !supported(d))return 0;
@@ -111,5 +111,29 @@ int g3_combat_strike(G3Combat *c,unsigned target) {
     c->last_source=(int)source;c->last_target=(int)target;c->last_damage=(int32_t)total;
     c->last_hits=hits;c->last_critical=criticals;c->last_state=state;
     if(!c->move[source] || hp==0)return g3_combat_next(c);
+    return 1;
+}
+int g3_combat_hostile(int team,int other) {
+    if((team==3 || team==4) && (other==3 || other==4))return 0;
+    return team==2 || team!=other;
+}
+int g3_combat_packet(G3Combat *c,unsigned source,unsigned target,unsigned kind) {
+    if(!running(c) || source>=c->count || target>=c->count || source==target ||
+       c->hp[source]<=0 || c->hp[target]<=0 || (kind!=0 && kind!=29))return 0;
+    /* First-battle offhand is the same Damascus weapon as the main hand.
+     * The generator rejects other offhand layouts; kind 29 uses that hand. */
+    G3Combat temporary=*c;
+    temporary.active=(int)source;temporary.move[source]=1;temporary.attack[source]=1;
+    temporary.stats[source].hits=1;
+    if(!g3_combat_strike(&temporary,target))return 0;
+    int prior=(c->last_source==(int)source && c->last_target==(int)target);
+    c->hp[target]=temporary.hp[target];c->rng=temporary.rng;
+    c->last_damage=(prior?c->last_damage:0)+temporary.last_damage;
+    c->last_hits=(prior?c->last_hits:0)+temporary.last_hits;
+    c->last_critical=(prior?c->last_critical:0)+temporary.last_critical;
+    c->last_state=temporary.last_state;c->last_source=(int)source;c->last_target=(int)target;
+    /* 1003DF8B: positive surviving physical hit spawns a randomized hit effect.
+     * Its RNG consumption is part of the original combat stream. */
+    if(c->hp[target]>0 && temporary.last_damage>0 && temporary.last_state==2)g3_original_rand(&c->rng);
     return 1;
 }
