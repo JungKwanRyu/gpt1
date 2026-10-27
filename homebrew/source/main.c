@@ -8,6 +8,7 @@
 #include "g3_story.h"
 #include "g3_progress.h"
 #include "g3_audio.h"
+#include "g3_navigation.h"
 #include "ui_font.h"
 
 #define PIXEL_CAPACITY (640u*480u*4u)
@@ -16,7 +17,7 @@ static void error_screen(const char *message) {
     consoleInit(NULL);
     printf("G3NX - The War of Genesis III\n\n%s\n\n",message);
     printf("Required: sdmc:/switch/g3nx/g3nx.title\n");
-    printf("Copy all files from the 0.4.0 package, including g3nx.field2 and audio/.\n\nPLUS: exit\n");
+    printf("Copy the complete 0.5.0 package including battle6.obt and g3nx.battle6.\n\nPLUS: exit\n");
     PadState pad;
     padConfigureInput(1,HidNpadStyleSet_NpadStandard);
     padInitializeDefault(&pad);
@@ -101,6 +102,8 @@ int main(int argc, char **argv) {
     G3Progress progress;
     G3Pack field_pack={0};
     G3FieldRenderer field_renderer={0};
+    G3Navigation navigation={0};
+    int navigating=0;
     int audio_requested=-2,audio_ok=1,muted=0;
     G3Menu menu;
     Framebuffer fb;
@@ -166,6 +169,7 @@ int main(int argc, char **argv) {
         if (menu.screen==G3_STORY) {
             int entering=old_screen!=G3_STORY;
             if (entering) {
+                navigating=0;
                 if (!open_story(&story_pack)) { failed=1; break; }
                 if (!layer) layer=malloc(PIXEL_CAPACITY);
                 if (!layer) { failed=1; break; }
@@ -174,20 +178,32 @@ int main(int argc, char **argv) {
                 if(!field_renderer.pack && !g3_field_renderer_open(&field_renderer,&field_pack)){failed=1;break;}
                 story_dirty=1; toast=0; toast_frames=0;
             }
-            if(progress.stage==0 && progress.story.status==G3_STORY_BOUNDARY && !entering && (buttons&G3_ACCEPT)) {
+            if(!navigating && progress.stage==1 && progress.field.view.status==G3_STORY_BOUNDARY &&
+               !entering && (buttons&G3_ACCEPT)) {
+                if(!navigation.map_data && !g3_navigation_open(&navigation,"sdmc:/switch/g3nx")){failed=1;break;}
+                if(!g3_navigation_reset(&navigation)){failed=1;break;}
+                navigating=1;buttons&=~G3_ACCEPT;toast_frames=0;
+            }
+            if(!navigating && progress.stage==0 && progress.story.status==G3_STORY_BOUNDARY && !entering && (buttons&G3_ACCEPT)) {
                 /* The original CPR calls field 1, then field 2, then battle 6.
                  * Never interpret FLD opcode 703 as the destination field. */
                 progress.stage=1;story_dirty=1;
             }
-            if(progress.stage==0)g3_story_tick(&progress.story,!entering && (buttons&G3_ACCEPT));
+            if(navigating) {
+                unsigned input=buttons;
+                if(down&HidNpadButton_L)input|=G3_NAV_PREVIOUS;
+                if(down&HidNpadButton_R)input|=G3_NAV_NEXT;
+                if(down&HidNpadButton_X)input|=G3_NAV_RESET;
+                if(!g3_navigation_input(&navigation,input) || !g3_navigation_render(&navigation,pixels,PIXEL_CAPACITY)){failed=1;break;}
+            } else if(progress.stage==0)g3_story_tick(&progress.story,!entering && (buttons&G3_ACCEPT));
             else g3_field_tick(&progress.field,!entering && (buttons&G3_ACCEPT));
-            if (down&HidNpadButton_X) {
+            if (!navigating && (down&HidNpadButton_X)) {
                 toast=g3_progress_save(&progress,"sdmc:/switch/g3nx")?1:2;
                 toast_frames=180;
             }
             const G3Story *current=progress.stage?&progress.field.view:&progress.story;
             int view[7]={current->background,current->left,current->right,current->center,current->dialog,current->page,current->status};
-            if (progress.stage || story_dirty || memcmp(view,last_view,sizeof(view))) {
+            if (!navigating && (progress.stage || story_dirty || memcmp(view,last_view,sizeof(view)))) {
                 if (progress.stage ? !g3_field_render(&field_renderer,&progress.field,pixels,PIXEL_CAPACITY) :
                     !render_story(&story_pack,&progress.story,pixels,layer)) { failed=1; break; }
                 memcpy(last_view,view,sizeof(view)); story_dirty=0;
@@ -201,21 +217,25 @@ int main(int argc, char **argv) {
         }
         if(down&HidNpadButton_Y)muted=!muted;
         int requested=-1;
-        if(menu.screen==G3_STORY && !muted)requested=progress.stage?progress.field.view.track:progress.story.track;
+        if(menu.screen==G3_STORY && !muted && !navigating)requested=progress.stage?progress.field.view.track:progress.story.track;
         if(requested!=audio_requested){audio_ok=g3_audio_set_track(requested);audio_requested=requested;}
         g3_audio_pump();
         uint32_t stride_bytes;
         uint32_t *screen=framebufferBegin(&fb,&stride_bytes);
         g3_menu_render(screen,stride_bytes/4,pixels);
-        if (menu.screen==G3_STORY && toast_frames>0) {
+        if(menu.screen==G3_STORY && navigating) {
+            char stats[32];int selected=navigation.selected;
+            snprintf(stats,sizeof(stats),"P%d MP%d/%d",selected+1,(int)navigation.remaining[selected],(int)navigation.units[selected].movement);
+            status_text(screen,stride_bytes/4,stats);
+        } else if (menu.screen==G3_STORY && toast_frames>0) {
             status_text(screen,stride_bytes/4,toast==1?"SAVED":"SAVE FAILED");
             toast_frames--;
         }
-        if(menu.screen==G3_STORY && toast_frames<=0 && (muted || !audio_ok))
+        if(menu.screen==G3_STORY && !navigating && toast_frames<=0 && (muted || !audio_ok))
             status_text(screen,stride_bytes/4,muted?"MUTED":"AUDIO ERROR");
         framebufferEnd(&fb);
     }
-    g3_audio_shutdown();g3_field_renderer_close(&field_renderer);g3_pack_close(&field_pack);
+    g3_audio_shutdown();g3_navigation_close(&navigation);g3_field_renderer_close(&field_renderer);g3_pack_close(&field_pack);
     framebufferClose(&fb); free(pixels); free(layer); g3_pack_close(&pack); g3_pack_close(&story_pack);
     if (failed) error_screen("Required scene assets are missing, corrupt, or incompatible.");
     return failed;

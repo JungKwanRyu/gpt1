@@ -17,6 +17,7 @@
 /reverse/battle-analysis.json
 /homebrew/include/g3_story_data.h
 /homebrew/include/g3_field2_data.h
+/homebrew/include/g3_battle6_data.h
 .venv/
 /homebrew/build/
 /homebrew/*.elf

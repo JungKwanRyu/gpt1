@@ -6,7 +6,7 @@ import subprocess
 
 ROOT=Path(__file__).resolve().parent.parent
 SOURCES=['g3_formats','g3_menu','g3_story','g3_map','g3_combat_math',
-         'g3_field','g3_field_render','g3_progress','g3_audio']
+         'g3_field','g3_field_render','g3_progress','g3_audio','g3_navigation']
 
 
 if __name__=='__main__':

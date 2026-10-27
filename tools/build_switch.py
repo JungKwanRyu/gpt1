@@ -47,8 +47,8 @@ def main():
     parser.add_argument("--toolchain",type=Path,default=Path(os.environ.get("DEVKITPRO",ROOT/".toolchain/local/opt/devkitpro")))
     args=parser.parse_args()
     folder=ROOT/"dist/switch/g3nx"
-    required=[folder/n for n in ("g3nx.title","g3nx.story","g3nx.field2","audio/manifest.json")]
-    required += [ROOT/"homebrew/include"/n for n in ("g3_story_data.h","g3_field2_data.h")]
+    required=[folder/n for n in ("g3nx.title","g3nx.story","g3nx.field2","g3nx.battle6","battle6.obt","audio/manifest.json")]
+    required += [ROOT/"homebrew/include"/n for n in ("g3_story_data.h","g3_field2_data.h","g3_battle6_data.h")]
     for path in required:
         if not path.is_file():raise FileNotFoundError(f"Prepare all scenario/audio assets before building: {path}")
     tools=args.toolchain.resolve()
@@ -74,27 +74,28 @@ def main():
         flags=arch+["-std=gnu11","-O2","-g","-Wall","-Wextra","-Werror",
                     "-ffunction-sections","-fdata-sections","-D__SWITCH__",
                     "-Iinclude","-I"+relative+"/libnx/include"]
-        names=("main","g3_formats","g3_menu","g3_story","g3_field","g3_field_render","g3_progress","g3_audio")
+        names=("main","g3_formats","g3_menu","g3_story","g3_field","g3_field_render","g3_progress","g3_audio","g3_map","g3_navigation")
         for name in names:run(cc,*flags,"-c",f"source/{name}.c","-o",f"build/{name}.o")
         run(cc,*[f"build/{name}.o" for name in names],*arch,
             "-specs="+relative+"/libnx/switch.specs","-Wl,--gc-sections,-Map,build/g3nx.map",
             "-L"+relative+"/libnx/lib","-lnx","-o","g3nx.elf")
-        run(nacptool,"--create","G3NX - The War of Genesis III","G3NX","0.4.0","g3nx.nacp")
+        run(nacptool,"--create","G3NX - The War of Genesis III","G3NX","0.5.0","g3nx.nacp")
         run(elf2nro,"g3nx.elf","g3nx.nro","--nacp=g3nx.nacp")
     elf=(source/"g3nx.elf").read_bytes()
     if elf[:6]!=b"\x7fELF\x02\x01" or struct.unpack_from("<H",elf,18)[0]!=183:
         raise ValueError("ELF is not little-endian AArch64 ELF64")
     report=validate_nro(source/"g3nx.nro")
-    report.update(compiler=version,version="0.4.0",hardware_tested=False,build_platform=os.name,
+    report.update(compiler=version,version="0.5.0",hardware_tested=False,build_platform=os.name,
                   executable_fields=[1,2],scripted_actor_motion=True,bgm_tracks=[35,42],
                   free_movement_implemented=False,battle_runtime_implemented=False,
+                  battle_navigation_workbench=True,original_ground_movement_cost=True,
                   native_checkpoint_implemented=True,voice_implemented=False)
     report["source_commit"]=subprocess.check_output(["git","rev-parse","HEAD"],cwd=ROOT,text=True).strip()
     report["source_dirty"]=bool(subprocess.check_output(["git","status","--porcelain"],cwd=ROOT,text=True).strip())
     shutil.copy2(source/"g3nx.nro",folder/"g3nx.nro")
     manifest=json.loads((folder/"audio/manifest.json").read_text())
     if {row["track"] for row in manifest}!={35,42}:raise ValueError("Audio manifest does not match this build")
-    names=["g3nx.nro","g3nx.title","g3nx.story","g3nx.field2","audio/manifest.json"]
+    names=["g3nx.nro","g3nx.title","g3nx.story","g3nx.field2","g3nx.battle6","battle6.obt","audio/manifest.json"]
     for row in manifest:
         name=row["file"]
         if Path(name).name!=name or not name.endswith(".wav"):raise ValueError("Invalid audio filename")
@@ -109,12 +110,15 @@ def main():
         report["runtime_files"][name]=dict(bytes=path.stat().st_size,sha256=digest)
     (folder/"build-report.json").write_text(json.dumps(report,indent=2)+"\n")
     (folder/"README.txt").write_text(
-        "G3NX 0.4.0 test build\n\n"
+        "G3NX 0.5.0 test build\n\n"
         "Copy the complete switch/g3nx folder to an SD card with an existing hbmenu setup.\n"
         "Start Game -> Shivan Scimitar. A advances dialogue; A at the first ending enters field 2.\n"
         "X saves dialogue or field-2 motion; Load Game resumes. Y toggles BGM mute. B returns. PLUS exits.\n"
         "Includes original field-2 scripted actor motion and BGM 35/42.\n"
-        "Stops before battle 6. No free movement, battle runtime, other episodes, voice or movies.\n"
+        "A at the field-2 ending opens battle-6 navigation. Arrows move the cursor; A moves within budget.\n"
+        "L/R select an ally; X resets all positions and budgets. Battle navigation cannot be saved.\n"
+        "Original base map, units, elevation and ground costs; occupied cells are excluded.\n"
+        "Static idle sprites only. No object-depth compositing, combat, AI, victory, voice or movies.\n"
         "Palette fade and original frame timing fidelity remain unverified.\n"
         "NRO/ELF structure and host tests checked; Switch hardware execution untested.\n")
     print(json.dumps(report,indent=2))
