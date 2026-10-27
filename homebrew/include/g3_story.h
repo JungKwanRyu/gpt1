@@ -11,6 +11,7 @@ typedef struct {
 enum { G3_STORY_RUNNING, G3_STORY_BOUNDARY, G3_STORY_ERROR };
 void g3_story_init(G3Story *story);
 void g3_story_tick(G3Story *story, int accept);
+int g3_story_valid(const G3Story *story);
 int g3_story_asset(int kind, int id, int page);
 uint32_t g3_story_identity(void);
 unsigned g3_story_asset_count(void);

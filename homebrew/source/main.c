@@ -6,6 +6,8 @@
 #include "g3_formats.h"
 #include "g3_menu.h"
 #include "g3_story.h"
+#include "g3_progress.h"
+#include "g3_audio.h"
 #include "ui_font.h"
 
 #define PIXEL_CAPACITY (640u*480u*4u)
@@ -14,7 +16,7 @@ static void error_screen(const char *message) {
     consoleInit(NULL);
     printf("G3NX - The War of Genesis III\n\n%s\n\n",message);
     printf("Required: sdmc:/switch/g3nx/g3nx.title\n");
-    printf("Copy g3nx.nro, g3nx.title and g3nx.story from the 0.3.0 package.\n\nPLUS: exit\n");
+    printf("Copy all files from the 0.4.0 package, including g3nx.field2 and audio/.\n\nPLUS: exit\n");
     PadState pad;
     padConfigureInput(1,HidNpadStyleSet_NpadStandard);
     padInitializeDefault(&pad);
@@ -40,6 +42,16 @@ static int open_story(G3Pack *pack) {
     snprintf(expected,sizeof(expected),"id%08x",g3_story_identity());
     if (pack->count!=g3_story_asset_count() || !g3_pack_record(pack,0,&first) || strcmp(first.name,expected)) {
         g3_pack_close(pack); return 0;
+    }
+    return 1;
+}
+static int open_field(G3Pack *pack) {
+    G3Asset first;char expected[17];
+    if(pack->file)return 1;
+    if(!g3_pack_open(pack,"sdmc:/switch/g3nx/g3nx.field2"))return 0;
+    snprintf(expected,sizeof(expected),"id%08x",g3_field_identity());
+    if(pack->count!=g3_field_asset_count() || !g3_pack_record(pack,0,&first) || strcmp(first.name,expected)) {
+        g3_pack_close(pack);return 0;
     }
     return 1;
 }
@@ -86,7 +98,10 @@ int main(int argc, char **argv) {
     (void)argc; (void)argv;
     G3Pack pack;
     G3Pack story_pack={0};
-    G3Story story;
+    G3Progress progress;
+    G3Pack field_pack={0};
+    G3FieldRenderer field_renderer={0};
+    int audio_requested=-2,audio_ok=1,muted=0;
     G3Menu menu;
     Framebuffer fb;
     PadState pad;
@@ -144,7 +159,7 @@ int main(int argc, char **argv) {
         if (menu.quit) break;
         int resumed=0;
         if (menu.screen==G3_LOAD) {
-            if (open_story(&story_pack) && g3_story_load(&story,"sdmc:/switch/g3nx")) {
+            if (open_story(&story_pack) && g3_progress_load(&progress,"sdmc:/switch/g3nx")) {
                 menu.screen=G3_STORY; menu.episode=0; resumed=1;
             } else { menu.screen=G3_NOTICE; menu.notice=3; }
         }
@@ -154,17 +169,27 @@ int main(int argc, char **argv) {
                 if (!open_story(&story_pack)) { failed=1; break; }
                 if (!layer) layer=malloc(PIXEL_CAPACITY);
                 if (!layer) { failed=1; break; }
-                if (!resumed) g3_story_init(&story);
+                if (!resumed) g3_progress_init(&progress);
+                if(!open_field(&field_pack)) {failed=1;break;}
+                if(!field_renderer.pack && !g3_field_renderer_open(&field_renderer,&field_pack)){failed=1;break;}
                 story_dirty=1; toast=0; toast_frames=0;
             }
-            g3_story_tick(&story,!entering && (buttons&G3_ACCEPT));
+            if(progress.stage==0 && progress.story.status==G3_STORY_BOUNDARY && !entering && (buttons&G3_ACCEPT)) {
+                /* The original CPR calls field 1, then field 2, then battle 6.
+                 * Never interpret FLD opcode 703 as the destination field. */
+                progress.stage=1;story_dirty=1;
+            }
+            if(progress.stage==0)g3_story_tick(&progress.story,!entering && (buttons&G3_ACCEPT));
+            else g3_field_tick(&progress.field,!entering && (buttons&G3_ACCEPT));
             if (down&HidNpadButton_X) {
-                toast=g3_story_save(&story,"sdmc:/switch/g3nx")?1:2;
+                toast=g3_progress_save(&progress,"sdmc:/switch/g3nx")?1:2;
                 toast_frames=180;
             }
-            int view[7]={story.background,story.left,story.right,story.center,story.dialog,story.page,story.status};
-            if (story_dirty || memcmp(view,last_view,sizeof(view))) {
-                if (!render_story(&story_pack,&story,pixels,layer)) { failed=1; break; }
+            const G3Story *current=progress.stage?&progress.field.view:&progress.story;
+            int view[7]={current->background,current->left,current->right,current->center,current->dialog,current->page,current->status};
+            if (progress.stage || story_dirty || memcmp(view,last_view,sizeof(view))) {
+                if (progress.stage ? !g3_field_render(&field_renderer,&progress.field,pixels,PIXEL_CAPACITY) :
+                    !render_story(&story_pack,&progress.story,pixels,layer)) { failed=1; break; }
                 memcpy(last_view,view,sizeof(view)); story_dirty=0;
             }
         } else {
@@ -174,6 +199,11 @@ int main(int argc, char **argv) {
                 loaded_scene=scene;
             }
         }
+        if(down&HidNpadButton_Y)muted=!muted;
+        int requested=-1;
+        if(menu.screen==G3_STORY && !muted)requested=progress.stage?progress.field.view.track:progress.story.track;
+        if(requested!=audio_requested){audio_ok=g3_audio_set_track(requested);audio_requested=requested;}
+        g3_audio_pump();
         uint32_t stride_bytes;
         uint32_t *screen=framebufferBegin(&fb,&stride_bytes);
         g3_menu_render(screen,stride_bytes/4,pixels);
@@ -181,8 +211,11 @@ int main(int argc, char **argv) {
             status_text(screen,stride_bytes/4,toast==1?"SAVED":"SAVE FAILED");
             toast_frames--;
         }
+        if(menu.screen==G3_STORY && toast_frames<=0 && (muted || !audio_ok))
+            status_text(screen,stride_bytes/4,muted?"MUTED":"AUDIO ERROR");
         framebufferEnd(&fb);
     }
+    g3_audio_shutdown();g3_field_renderer_close(&field_renderer);g3_pack_close(&field_pack);
     framebufferClose(&fb); free(pixels); free(layer); g3_pack_close(&pack); g3_pack_close(&story_pack);
     if (failed) error_screen("Required scene assets are missing, corrupt, or incompatible.");
     return failed;

@@ -125,6 +125,15 @@ class RuntimeTests(unittest.TestCase):
         self.lib.g3_menu_render(screen,1280,canvas)
         Image.frombytes("RGBA",(1280,720),bytes(screen)).save("dist/switch/g3nx/story-native-preview.png")
 
+    def test_all_story_layers_match_the_runtime_canvas(self):
+        pack,record=Pack(),Asset()
+        self.assertEqual(self.lib.g3_pack_open(C.byref(pack),b"dist/switch/g3nx/g3nx.story"),1)
+        try:
+            for index in range(1,pack.count):
+                self.assertEqual(self.lib.g3_pack_record(C.byref(pack),index,C.byref(record)),1)
+                self.assertEqual((record.width,record.height),(640,480),record.name)
+        finally:self.lib.g3_pack_close(C.byref(pack))
+
     def test_checkpoint_roundtrip_and_corrupt_latest_fallback(self):
         story=self.first_dialog()
         with tempfile.TemporaryDirectory(dir="homebrew/build") as directory:
