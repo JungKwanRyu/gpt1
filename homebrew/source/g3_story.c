@@ -10,7 +10,10 @@ typedef struct {
 } G3Event;
 typedef struct { int id, asset; } G3ResourceMap;
 typedef struct { unsigned first, count; } G3TextPages;
-#include "g3_story_data.h"
+#ifndef G3_STORY_DATA_HEADER
+#define G3_STORY_DATA_HEADER "g3_story_data.h"
+#endif
+#include G3_STORY_DATA_HEADER
 
 uint32_t g3_story_identity(void) { return G3_STORY_ID; }
 unsigned g3_story_asset_count(void) { return G3_STORY_ASSETS; }
@@ -31,7 +34,7 @@ int g3_story_asset(int kind, int id, int page) {
 }
 void g3_story_init(G3Story *s) {
     memset(s,0,sizeof(*s));
-    s->active=0; s->background=137;
+    s->active=0; s->background=G3_STORY_BACKGROUND;
     s->left=s->right=s->center=s->dialog=s->track=-1;
     s->enabled[0]=1;
 }
@@ -145,7 +148,7 @@ static uint32_t checksum(const uint8_t *p,unsigned size) {
     }
     return ~crc;
 }
-static int valid(const G3Story *s) {
+int g3_story_valid(const G3Story *s) {
     unsigned i;
     if (s->active< -1 || s->active>=(int)G3_STORY_EVENTS || s->pc<0 ||
         (s->active>=0 && s->pc>g3_story_events[s->active].action_count) ||
@@ -180,7 +183,7 @@ static int read_slot(G3Story *s,const char *directory,unsigned slot,uint32_t *se
     memcpy(candidate.flags,bytes+at,256); at+=256;
     memcpy(candidate.enabled,bytes+at,16); at+=16;
     memcpy(candidate.finished,bytes+at,16);
-    if (!valid(&candidate)) return 0;
+    if (!g3_story_valid(&candidate)) return 0;
     *sequence=get32(bytes+12); *s=candidate;
     return 1;
 }
@@ -198,7 +201,7 @@ int g3_story_save(const G3Story *s,const char *directory) {
     uint8_t bytes[HEADER_SIZE+STATE_SIZE], crc_data[20+STATE_SIZE];
     size_t at=HEADER_SIZE;
     char path[512];
-    if (!valid(s)) return 0;
+    if (!g3_story_valid(s)) return 0;
     read_slot(&ignored,directory,0,&a); read_slot(&ignored,directory,1,&b);
     sequence=(a>b?a:b)+1;
     if (!sequence) return 0;

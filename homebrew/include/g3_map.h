@@ -14,4 +14,14 @@ typedef struct {
 int g3_map_open(G3Map *map, const uint8_t *data, size_t size);
 int g3_map_render(const G3Map *map, int x, int y,
                   uint8_t *rgba, size_t capacity, unsigned width, unsigned height);
+/* Original small-unit rules: ALPHA 10032900, 1008A680..1008A9B0.
+ * terrain is elevation, not a terrain movement-price table. */
+int g3_map_project(const G3Map *map,int x,int y,int *screen_x,int *screen_y);
+int g3_map_step(const G3Map *map,int x,int y,int to_x,int to_y,int flying);
+#define G3_ROUTE_MAX 4096u
+/* Navigation workbench: occupied cells are excluded, including friendly cells.
+ * This conservative occupancy policy is not yet the original battle policy.
+ * -1 means unreachable/invalid; predecessor contains logical cell indices. */
+int g3_map_routes(const G3Map *map,int x,int y,int flying,int budget,
+                  const uint8_t *occupied,size_t count,int32_t *cost,int32_t *predecessor);
 #endif

@@ -85,3 +85,54 @@ int g3_map_render(const G3Map *map,int x,int y,uint8_t *rgba,size_t capacity,
     }
     return 1;
 }
+
+static int logical_cell(const G3Map *m,int x,int y) {
+    return m && m->terrain && m->attributes && x>=0 && y>=0 &&
+        (unsigned)x<m->width && (unsigned)y<m->height;
+}
+int g3_map_project(const G3Map *m,int x,int y,int *sx,int *sy) {
+    if (!sx || !sy || !logical_cell(m,x,y)) return 0;
+    *sx=x*40+20-m->origin_x*40;
+    *sy=y*32+16-m->terrain[(size_t)y*m->width+x]*12-m->origin_y*8;
+    return 1;
+}
+int g3_map_step(const G3Map *m,int x,int y,int tx,int ty,int flying) {
+    if (!logical_cell(m,x,y) || !logical_cell(m,tx,ty)) return -1;
+    int dx=tx-x,dy=ty-y;
+    if (dx< -1 || dx>1 || dy< -1 || dy>1 || (!dx && !dy)) return -1;
+    unsigned from=(unsigned)y*m->width+(unsigned)x,to=(unsigned)ty*m->width+(unsigned)tx;
+    if (m->attributes[to] & (flying?2:1)) return -1;
+    int dh=(int)m->terrain[to]-(int)m->terrain[from];
+    if (dh<0)dh=-dh;
+    if (!flying && dh>2) return -1;
+    /* Flying altitude uses a different original getter. Do not silently apply
+     * ground elevation prices to flying units until that getter is restored. */
+    if (flying) return -1;
+    return 4*((dx<0?-dx:dx)+(dy<0?-dy:dy))+2*dh;
+}
+int g3_map_routes(const G3Map *m,int x,int y,int flying,int budget,
+                  const uint8_t *occupied,size_t count,int32_t *cost,int32_t *prev) {
+    if (!logical_cell(m,x,y) || flying || budget<0 || budget>65535 || !cost || !prev ||
+        (size_t)m->width*m->height>G3_ROUTE_MAX || count!=(size_t)m->width*m->height) return 0;
+    uint8_t visited[G3_ROUTE_MAX]={0};
+    unsigned source=(unsigned)y*m->width+(unsigned)x;
+    for (size_t i=0;i<count;i++){cost[i]=-1;prev[i]=-1;}
+    cost[source]=0;
+    for (;;) {
+        int best=-1;
+        for (unsigned i=0;i<count;i++)
+            if (!visited[i] && cost[i]>=0 && (best<0 || cost[i]<cost[best])) best=(int)i;
+        if (best<0) break;
+        visited[best]=1;
+        int bx=best%(int)m->width,by=best/(int)m->width;
+        for (int dy=-1;dy<=1;dy++) for (int dx=-1;dx<=1;dx++) {
+            int tx=bx+dx,ty=by+dy,step=g3_map_step(m,bx,by,tx,ty,0);
+            if(step<0)continue;
+            unsigned to=(unsigned)ty*m->width+(unsigned)tx;
+            if (occupied && occupied[to] && to!=source)continue;
+            int next=cost[best]+step;
+            if (next<=budget && (cost[to]<0 || next<cost[to])) {cost[to]=next;prev[to]=best;}
+        }
+    }
+    return 1;
+}

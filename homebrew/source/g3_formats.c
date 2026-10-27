@@ -74,7 +74,7 @@ int g3_pack_record(G3Pack *pack, uint32_t index, G3Asset *asset) {
     memset(asset,0,sizeof(*asset)); memcpy(asset->name,rec,16);
     asset->width=le32(rec+16); asset->height=le32(rec+20);
     asset->offset=le32(rec+24); asset->size=le32(rec+28);
-    return asset->width>0 && asset->width<=1040 && asset->height>0 && asset->height<=624 &&
+    return asset->width>0 && asset->width<=4096 && asset->height>0 && asset->height<=4096 &&
         (uint64_t)asset->width*asset->height*4==asset->size &&
         asset->offset>=16+(uint64_t)pack->count*32 &&
         (uint64_t)asset->offset+asset->size<=pack->file_size;

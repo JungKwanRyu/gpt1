@@ -79,7 +79,7 @@ def main():
                 sprite(page,menus[i],(320,240),255 if i==selected else 115)
             sprite(page,menus[4],(320,240))
             draw = ImageDraw.Draw(page)
-            draw.text((8,7),"G3NX 0.3.0",font=small,fill=(210,197,174,255))
+            draw.text((8,7),"G3NX 0.4.0",font=small,fill=(210,197,174,255))
             draw.text((467,7),"SCENARIO PORT",font=small,fill=(210,197,174,255))
             draw.text((212,445),"↑↓ 선택    A 확인    + 종료",font=small,fill=(207,196,177,255))
             scenes.append((f"title{selected}",page))
@@ -99,7 +99,7 @@ def main():
                 wrapped(draw,descriptions[(1,2,0)[i]],x+14,204,body,156,
                         (230,220,200,255) if i==selected else (140,132,120,255))
             draw.text((166,416),"←→ 에피소드 선택    A 확인    B 타이틀",font=body,fill=(235,218,181,255))
-            draw.text((140,449),"시반슈미터: 첫 대화 장면 지원 / 나머지 에피소드: 복원 중",font=small,fill=(198,184,166,255))
+            draw.text((140,449),"시반슈미터: 첫 대화·이동 장면 지원 / 나머지 에피소드: 복원 중",font=small,fill=(198,184,166,255))
             scenes.append((f"episode{selected}",page))
 
         notices = [
