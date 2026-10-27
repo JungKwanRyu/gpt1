@@ -11,6 +11,10 @@
 /reverse/pe-report.json
 /reverse/scenario-analysis.json
 /reverse/*.obs
+/reverse/*.BTL
+/reverse/*.OBT
+/reverse/*.CHR
+/reverse/battle-analysis.json
 /homebrew/include/g3_story_data.h
 .venv/
 /homebrew/build/

@@ -45,7 +45,7 @@ def decode_spans(payload, width, height, transparent):
     return bytes(output)
 
 
-def decode_obs(data):
+def _decode_images(data):
     if len(data)<4:
         raise ValueError("Truncated OBS header")
     count, = struct.unpack_from("<I",data)
@@ -77,5 +77,39 @@ def decode_obs(data):
         for sprite in sprites:
             sprite.palette = palette
         groups.append(sprites)
-    # Animation/action tables follow the image groups; deliberately not interpreted.
-    return groups
+    return groups, at
+
+
+def decode_obs(data):
+    # Existing portrait consumers only need the image groups.
+    return _decode_images(data)[0]
+
+
+def decode_obs_actions(data):
+    """Read timed action records (100A71D4); preserve unknown command words.
+
+    Record word 0 is start time, word 1 duration; opcode 0 draws the group/frame
+    in words 3/4. Other opcodes must be interpreted by the runtime separately.
+    """
+    groups, at = _decode_images(data)
+    if at+4 > len(data):
+        raise ValueError("Missing OBS action table")
+    count, = struct.unpack_from("<I", data, at)
+    at += 4
+    if count > 4096:
+        raise ValueError("Excessive OBS actions")
+    actions = []
+    for _ in range(count):
+        if at+8 > len(data):
+            raise ValueError("Truncated OBS action header")
+        duration, commands = struct.unpack_from("<II", data, at)
+        at += 8
+        if commands > (len(data)-at)//18:
+            raise ValueError("Truncated OBS action records")
+        records = list(struct.iter_unpack("<9H", data[at:at+commands*18]))
+        at += commands*18
+        for record in records:
+            if record[2] == 0 and (record[3] >= len(groups) or record[4] >= len(groups[record[3]])):
+                raise ValueError("OBS action frame out of bounds")
+        actions.append(dict(duration=duration, records=records))
+    return groups, actions, data[at:]

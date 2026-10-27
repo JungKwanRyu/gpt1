@@ -7,6 +7,7 @@
 - [현재 버전 설치·동작·미구현 범위](docs/SCENARIO_0_3_0.ko.md)
 - [시작화면 복원 기록](docs/START_SCREEN.ko.md)
 - [리버싱 기록](docs/HOMEBREW_REVERSE_ENGINEERING.ko.md)
+- [첫 전투 복원 진행 및 검증 근거](docs/FIRST_BATTLE_RECONSTRUCTION.ko.md)
 
 ## 구성
 
@@ -41,6 +42,9 @@ python tools/prepare_assets.py Store/image.img
 python tools/test_story.py
 python tools/test_title.py
 python tools/test_resources.py
+python tools/analyze_battle.py Store/image.img
+python tools/test_battle.py
+python tools/test_combat_math.py
 ```
 
 0.2.0의 시작화면은 사용자가 실기 동작을 확인했습니다. 0.3.0의 새 시나리오·저장 기능은 PC 검사와 Switch 빌드를 통과했으며, 실기 확인은 별도로 필요합니다.
