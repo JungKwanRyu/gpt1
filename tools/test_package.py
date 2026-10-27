@@ -16,7 +16,7 @@ class PackageTests(unittest.TestCase):
         folder=root/'dist/switch/g3nx'
         files=('g3nx.nro','g3nx.title','g3nx.story','g3nx.field2',
                'audio/manifest.json','audio/bgm0035.wav','audio/bgm0042.wav')
-        if version=='0.5.0':files+=('g3nx.battle6','battle6.obt')
+        if version in ('0.5.0','0.6.0'):files+=('g3nx.battle6','battle6.obt')
         report={'version':version,'runtime_files':{}}
         for name in files:
             path=folder/name;path.parent.mkdir(parents=True,exist_ok=True)
@@ -52,24 +52,26 @@ class PackageTests(unittest.TestCase):
                 with patch.object(package_release,'ROOT',root),self.assertRaises(ValueError):package_release.main()
 
     def test_navigation_package_includes_map_and_sprites(self):
-        with tempfile.TemporaryDirectory() as d:
-            root=Path(d);_,report=self.fixture(root,'0.5.0')
-            with patch.object(package_release,'ROOT',root),redirect_stdout(io.StringIO()):package_release.main()
-            with zipfile.ZipFile(root/'dist/g3nx-scenario-0.5.0.zip') as archive:
-                self.assertIsNone(archive.testzip())
-                self.assertEqual(set(archive.namelist()),{'switch/g3nx/'+n for n in (*report['runtime_files'],'README.txt','build-report.json')})
+        for version in ('0.5.0','0.6.0'):
+            with tempfile.TemporaryDirectory() as d:
+                root=Path(d);_,report=self.fixture(root,version)
+                with patch.object(package_release,'ROOT',root),redirect_stdout(io.StringIO()):package_release.main()
+                with zipfile.ZipFile(root/f'dist/g3nx-scenario-{version}.zip') as archive:
+                    self.assertIsNone(archive.testzip())
+                    self.assertEqual(set(archive.namelist()),{'switch/g3nx/'+n for n in (*report['runtime_files'],'README.txt','build-report.json')})
 
     def test_navigation_assets_cannot_be_omitted_or_modified(self):
-        for name in ('g3nx.battle6','battle6.obt'):
-            for corrupt in (False,True):
-                with tempfile.TemporaryDirectory() as d:
-                    root=Path(d);folder,report=self.fixture(root,'0.5.0')
-                    if corrupt:(folder/name).write_bytes(b'changed')
-                    else:
-                        del report['runtime_files'][name]
-                        (folder/'build-report.json').write_text(json.dumps(report))
-                    with patch.object(package_release,'ROOT',root),self.assertRaises(ValueError):package_release.main()
-                    self.assertFalse((root/'dist/g3nx-scenario-0.5.0.zip').exists())
+        for version in ('0.5.0','0.6.0'):
+            for name in ('g3nx.battle6','battle6.obt'):
+                for corrupt in (False,True):
+                    with tempfile.TemporaryDirectory() as d:
+                        root=Path(d);folder,report=self.fixture(root,version)
+                        if corrupt:(folder/name).write_bytes(b'changed')
+                        else:
+                            del report['runtime_files'][name]
+                            (folder/'build-report.json').write_text(json.dumps(report))
+                        with patch.object(package_release,'ROOT',root),self.assertRaises(ValueError):package_release.main()
+                        self.assertFalse((root/f'dist/g3nx-scenario-{version}.zip').exists())
 
 
 if __name__=='__main__':unittest.main()

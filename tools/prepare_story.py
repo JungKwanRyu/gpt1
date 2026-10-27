@@ -109,7 +109,7 @@ def prepare_single(args):
             pages.append((first,len(images)-first))
 
     boundary=("첫 장면의 대화가 끝났습니다.\nA를 누르면 네 인물이 이동하는 다음 장면을 진행합니다.\nB로 에피소드 선택 화면으로 돌아갈 수 있습니다." if args.field==1 else
-              "이동 장면이 끝났습니다.\nA: 첫 전투 지도의 이동 검증 화면으로 진행합니다.\n공격·적 AI·승패는 아직 구현 중입니다.")
+              "이동 장면이 끝났습니다.\nA: 첫 전투 턴·공격 검증 화면으로 진행합니다.\n양 진영 수동 조작 · 적 AI·승패는 미구현입니다.")
     for label,message in (("boundary",boundary),
                           ("unsupported","아직 지원하지 않는 이벤트 또는 자산에 도달했습니다.\n원본 명령을 건너뛰지 않고 진행을 멈췄습니다.\nB로 에피소드 선택 화면으로 돌아갈 수 있습니다.")):
         panel=Image.new("RGBA",(640,480),(0,0,0,155))

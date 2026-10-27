@@ -23,6 +23,7 @@ class Rules:
         self.items = [None] + table(image.read("G3P1/Dats/Item.dat"), 204)
         self.jobs = [None] + table(image.read("G3P1/Dats/Job.dat"), 100)
         self.abilities = [None] + table(image.read("G3P1/Dats/Abi.dat"), 39)
+        self.attacks = [None] + table(image.read("G3P1/Dats/Attack.dat"), 94)
 
     def initial(self, data):
         char = parse_character(data)
@@ -67,6 +68,8 @@ class Rules:
         raw = char["stats_raw"]
         char.update(job=job, kind=data[69], large=data[70], flying=data[71],
                     equipment=list(equipment), personal_abilities=ranks,
+                    default_attack=struct.unpack_from("<H",data,67)[0],
+                    passive_ranks={i:rank(i) for i in (76,77,80)},
                     hp_max=char["hp_base"]+100*rank(1),
                     strength=raw[0]+5*rank(2)+effect(201),
                     skill=raw[1]+5*rank(3), dexterity=raw[2]+5*rank(4)+effect(200),
@@ -77,6 +80,26 @@ class Rules:
                     period=raw[8], range=raw[9]+5*rank(6)+effect(206),
                     element_scales=list(struct.unpack_from("<5H", data, 95)))
         return char
+
+    def physical_attack(self, number):
+        """First-battle type-1, constant-range, kind-0 subset; reject other paths.
+
+        Disk 94-byte records -> runtime 108 bytes: 10023070..10023409.
+        Range selection: 10038B20, 100390B0, 1008AFB0, 1008AD80.
+        """
+        if not 0 < number < len(self.attacks):
+            raise ValueError("Invalid attack reference")
+        r = self.attacks[number]
+        if (r[30],r[31],r[61],r[45],r[46]) != (1,3,0,1,0):
+            raise ValueError("Unsupported physical attack variant")
+        if tuple(r[40:45]) != (0,1,1,0,0):
+            raise ValueError("Unsupported target/height range flags")
+        return dict(name=xor_text(r[:30]),id=number,kind=r[61],
+                    range=struct.unpack_from("<i",r,32)[0],
+                    min_range=struct.unpack_from("<i",r,36)[0],
+                    height_cost=r[41],bonus=struct.unpack_from("<i",r,62)[0],
+                    element=r[88],secondary=r[89],hits=r[90],
+                    morale_cost=struct.unpack_from("<i",r,67)[0])
 
     def weapon(self, number):
         if not 0 < number < len(self.items):

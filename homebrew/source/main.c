@@ -17,7 +17,7 @@ static void error_screen(const char *message) {
     consoleInit(NULL);
     printf("G3NX - The War of Genesis III\n\n%s\n\n",message);
     printf("Required: sdmc:/switch/g3nx/g3nx.title\n");
-    printf("Copy the complete 0.5.0 package including battle6.obt and g3nx.battle6.\n\nPLUS: exit\n");
+    printf("Copy the complete 0.6.0 package including battle6.obt and g3nx.battle6.\n\nPLUS: exit\n");
     PadState pad;
     padConfigureInput(1,HidNpadStyleSet_NpadStandard);
     padInitializeDefault(&pad);
@@ -194,6 +194,7 @@ int main(int argc, char **argv) {
                 if(down&HidNpadButton_L)input|=G3_NAV_PREVIOUS;
                 if(down&HidNpadButton_R)input|=G3_NAV_NEXT;
                 if(down&HidNpadButton_X)input|=G3_NAV_RESET;
+                if(down&HidNpadButton_ZL)input|=G3_NAV_TOGGLE;
                 if(!g3_navigation_input(&navigation,input) || !g3_navigation_render(&navigation,pixels,PIXEL_CAPACITY)){failed=1;break;}
             } else if(progress.stage==0)g3_story_tick(&progress.story,!entering && (buttons&G3_ACCEPT));
             else g3_field_tick(&progress.field,!entering && (buttons&G3_ACCEPT));
@@ -226,7 +227,7 @@ int main(int argc, char **argv) {
         if(menu.screen==G3_STORY && navigating) {
             char stats[32];int selected=navigation.selected;
             snprintf(stats,sizeof(stats),"P%d MP%d/%d",selected+1,(int)navigation.remaining[selected],(int)navigation.units[selected].movement);
-            status_text(screen,stride_bytes/4,stats);
+            status_text(screen,stride_bytes/4,navigation.combat_mode?"MANUAL COMBAT":stats);
         } else if (menu.screen==G3_STORY && toast_frames>0) {
             status_text(screen,stride_bytes/4,toast==1?"SAVED":"SAVE FAILED");
             toast_frames--;

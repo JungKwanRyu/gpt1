@@ -1,10 +1,11 @@
-"""Prepare the first battle navigation workbench from original BTL/OBT/CHR/OBS.
+"""Prepare original battle-six assets and bounded physical-combat test data.
 
-No turn scheduler, damage, AI, or victory logic is synthesized by this tool.
+AI, battle events/statuses, counterattacks and attack animation are not generated.
 """
 import argparse
 import hashlib
 import json
+import struct
 import zlib
 from pathlib import Path
 from PIL import Image, ImageDraw, ImageFont
@@ -32,19 +33,43 @@ def main():
     with GameImage(args.image) as image:
         battle = parse_battle(image.read("G3P1/Btls/0006.BTL"))
         raw_map = image.read(f"G3P1/Obts/{battle['header'][0]:04d}.OBT")
-        identity = zlib.crc32(raw_map+b"battle6-navigation-layout1")
-        assets.append((f"id{identity:08x}",Image.new("RGBA",(1,1))))
         parsed_map = parse_map(raw_map)
         if parsed_map.width*parsed_map.height > 4096:
             raise ValueError("Map exceeds navigation workspace")
         rules = Rules(image)
         characters = {u[0]: rules.initial(image.read(f"G3P1/Chars/{u[0]:04d}.CHR")) for u in battle["units"]}
+        source_data=b"".join(image.read(f"G3P1/Dats/{name}.dat") for name in ("Abi","Job","Item","Attack"))
+        identity = zlib.crc32(raw_map+source_data+json.dumps(characters,sort_keys=True).encode()+b"battle6-combat-layout2")
+        assets.append((f"id{identity:08x}",Image.new("RGBA",(1,1))))
         for unit in battle["units"]:
             char = characters[unit[0]]
             if char["large"] or char["flying"]:
                 raise ValueError("Only verified small ground units supported")
             code.append("    {"+",".join(map(str,(unit[0],char["model"],unit[2],unit[3],unit[4],
                                                   char["movement"],char["hp_max"],char["period"])))+"},")
+        code += ["};", "static const G3CombatStats initial_combat[] = {"]
+        combat_records=[]
+        for unit in battle["units"]:
+            char=characters[unit[0]]
+            attack=rules.physical_attack(char["default_attack"])
+            if attack["morale_cost"] or attack["element"] or attack["kind"]:
+                raise ValueError("Unsupported initial attack/status variant")
+            main=rules.weapon(char["equipment"][0])
+            off=rules.weapon(char["equipment"][1]) if char["equipment"][1] else dict(accuracy=0,defense=0)
+            # First-battle equipment has no ability-grant/stat-207/bypass effects.
+            for item in char["equipment"]:
+                if item and item not in (35,88,144,145):
+                    raise ValueError("Re-audit equipment ability/effect inheritance")
+            ranks=char["passive_ranks"]
+            flags=(bool(ranks[77])*1+bool(ranks[76])*2+bool(ranks[80])*4)
+            scales=char["element_scales"]+list(struct.unpack_from("<4H",image.read(f"G3P1/Chars/{unit[0]:04d}.CHR"),105))
+            values=(char["hp_max"],char["strength"],char["dexterity"],char["armor"],
+                    main["power"],main["modifier"],main["accuracy"],main["critical"],
+                    main["accuracy"]+off["accuracy"],main["defense"]+off["defense"],
+                    flags,char["period"],unit[4],attack["id"],attack["hits"],attack["bonus"],
+                    attack["range"],attack["min_range"],attack["height_cost"],main["element"],attack["secondary"])
+            code.append("    {"+",".join(map(str,values))+",{"+",".join(map(str,scales))+"}},")
+            combat_records.append(dict(character=unit[0],attack=attack,weapon=main,scales=scales))
         code += ["};", "static const G3BattleSprite battle_sprites[] = {"]
         index_path = "G3P1/Obss/Obss.idx"
         index = {r.name:r for r in parse_index(image.read(index_path))}
@@ -59,11 +84,19 @@ def main():
         code += ["};", f"#define G3_BATTLE_HELP {len(assets)}u"]
         panel = Image.new("RGBA", (640,68), (10,12,25,245))
         draw = ImageDraw.Draw(panel)
-        for row, text in enumerate(("첫 전투 이동 검증 · 공격/적 AI/승패/전투 저장은 아직 미구현",
+        for row, text in enumerate(("첫 전투 이동 검증 · ZL: 턴/공격 검증 화면으로 전환",
                                     "방향키: 목적지   A: 이동   L/R: 아군 선택   X: 배치 초기화   B: 돌아가기",
                                     "파랑: 이동 가능   노랑: 목적지   겹친 칸 통과 제한 · 원본 지형/이동 비용 사용")):
             draw.text((10,3+row*21),text,font=font,fill=(240,235,215,255))
         assets.append(("help",panel))
+        code += [f"#define G3_BATTLE_COMBAT_HELP {len(assets)}u"]
+        panel=Image.new("RGBA",(640,68),(10,12,25,245))
+        draw=ImageDraw.Draw(panel)
+        for row,text in enumerate(("첫 전투 규칙 검증 · 양 진영 수동 조작 · 적 AI/승패 이벤트/저장은 미구현",
+                                    "방향키: 목적지/적 선택   A: 이동/공격   R: 대기   L: 현재 유닛 위치",
+                                    "빨강: 공격 가능   파랑: 이동 가능   X: 초기화   ZL: 이동 검증 전환")):
+            draw.text((10,3+row*21),text,font=font,fill=(240,235,215,255))
+        assets.append(("combat",panel))
         code += [f'#define G3_BATTLE_MAP_SHA "{hashlib.sha256(raw_map).hexdigest()}"']
         code += [f'#define G3_BATTLE_MAP_BYTES {len(raw_map)}u',
                  f'#define G3_BATTLE_MAP_CRC {zlib.crc32(raw_map)}u',
@@ -79,7 +112,8 @@ def main():
         for _,picture in assets:
             stream.write(picture.tobytes())
     (ROOT/"homebrew/include/g3_battle6_data.h").write_text("\n".join(code)+"\n",encoding="ascii")
-    audit = dict(scope="Navigation workbench only; no battle simulation", characters=characters,
+    audit = dict(scope="Manual physical-combat/turn workbench; no original AI/events/statuses", characters=characters,
+                 combat=combat_records,
                  battle=battle, map_sha256=hashlib.sha256(raw_map).hexdigest(),
                  evidence={"projection":"10032900/100329A0/10099EA0",
                            "small_ground_step":"1008A680/1008A880/1008A920",
