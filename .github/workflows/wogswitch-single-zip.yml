@@ -1,0 +1,85 @@
+name: Deliver WogSwitch single ZIP
+on:
+  push:
+    branches:
+      - codex/wogswitch-single-zip-delivery
+    paths:
+      - .github/workflows/wogswitch-single-zip.yml
+permissions:
+  contents: write
+jobs:
+  assemble-and-verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Assemble, upload, and download-verify the single ZIP
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: python
+        run: |
+          import hashlib, json, os, urllib.request, urllib.error, urllib.parse, zipfile
+          from pathlib import Path
+          
+          REPO = "JungKwanRyu/gpt1"
+          RELEASE = 425960140
+          NAME = "WogSwitchProbe-0.1.0.zip"
+          EXPECTED = "8cb442a1999eeec56c76364f1d52637a45ed5f68174ef32b7e36885193edd067"
+          PARTS = [{"id":720300782,"name":"WogSwitchProbe-0.1.0.zip.001","size":5242880,"digest":"sha256:5181d7014d86cc2a7ca65993b946f57cd6a5a22108fe0ff24ceb0a579cbb2a50"},{"id":720300849,"name":"WogSwitchProbe-0.1.0.zip.002","size":5242880,"digest":"sha256:9296cc14e19dfa2af7a9ac55e397a8f4b1cf3ce1f32eac575c4ba84493ab27a7"},{"id":720300912,"name":"WogSwitchProbe-0.1.0.zip.003","size":5242880,"digest":"sha256:7796c47290d87dc509eea004013627600eb3f74cfea15e02956a6e9bc3628916"},{"id":720300986,"name":"WogSwitchProbe-0.1.0.zip.004","size":5242880,"digest":"sha256:217d63a2d86263cf4215df0980ba983380e34451d716f179d599d5fc22a958c7"},{"id":720301054,"name":"WogSwitchProbe-0.1.0.zip.005","size":5242880,"digest":"sha256:ad74ab5e5e2f3097484e316afafdc4763a5c8c2c7d800ed59801cc96bab58291"},{"id":720301127,"name":"WogSwitchProbe-0.1.0.zip.006","size":808512,"digest":"sha256:1f605570643a29311dced2cb7517c43a5b4c81130ab24c1653af4cab6b40c0fb"}]
+          HEADERS = {"Authorization": "Bearer " + os.environ["GH_TOKEN"], "User-Agent": "WogSwitch-single-zip", "X-GitHub-Api-Version": "2022-11-28"}
+          
+          def api(path):
+              req = urllib.request.Request("https://api.github.com" + path, headers={**HEADERS, "Accept": "application/vnd.github+json"})
+              with urllib.request.urlopen(req, timeout=90) as response:
+                  return json.load(response)
+          
+          class NoRedirect(urllib.request.HTTPRedirectHandler):
+              def redirect_request(self, req, fp, code, msg, headers, newurl):
+                  return None
+          
+          def download(asset_id):
+              req = urllib.request.Request(f"https://api.github.com/repos/{REPO}/releases/assets/{asset_id}", headers={**HEADERS, "Accept": "application/octet-stream"})
+              try:
+                  with urllib.request.build_opener(NoRedirect).open(req, timeout=90) as response:
+                      return response.read()
+              except urllib.error.HTTPError as error:
+                  if error.code not in (301, 302, 303, 307, 308):
+                      raise
+                  url = error.headers["Location"]
+                  if urllib.parse.urlsplit(url).hostname not in {"release-assets.githubusercontent.com", "objects.githubusercontent.com"}:
+                      raise RuntimeError("Unexpected asset download host")
+                  # Signed CDN URL requires no repository token.
+                  with urllib.request.urlopen(url, timeout=90) as response:
+                      return response.read()
+          
+          output = Path(NAME)
+          with output.open("wb") as stream:
+              for part in PARTS:
+                  data = download(part["id"])
+                  assert len(data) == part["size"], part["name"]
+                  assert "sha256:" + hashlib.sha256(data).hexdigest() == part["digest"], part["name"]
+                  stream.write(data)
+                  print("Verified part", part["name"])
+          data = output.read_bytes()
+          assert len(data) == 27022912
+          assert hashlib.sha256(data).hexdigest() == EXPECTED
+          with zipfile.ZipFile(output) as archive:
+              assert archive.testzip() is None
+          release = api(f"/repos/{REPO}/releases/{RELEASE}")
+          assert release["draft"] is True, "Expected the existing private draft"
+          existing = next((a for a in release["assets"] if a["name"] == NAME), None)
+          if existing is None:
+              request = urllib.request.Request(
+                  f"https://uploads.github.com/repos/{REPO}/releases/{RELEASE}/assets?name={NAME}",
+                  data=data, method="POST", headers={**HEADERS, "Accept": "application/vnd.github+json", "Content-Type": "application/zip"})
+              with urllib.request.urlopen(request, timeout=180) as response:
+                  existing = json.load(response)
+          assert existing["state"] == "uploaded"
+          assert existing["size"] == len(data)
+          assert existing["digest"] == "sha256:" + EXPECTED
+          print("SINGLE ZIP VERIFIED:", existing["browser_download_url"])
+          # Download the completed asset independently and verify the actual served bytes.
+          roundtrip = download(existing["id"])
+          assert hashlib.sha256(roundtrip).hexdigest() == EXPECTED
+          assert len(roundtrip) == len(data)
+          print("ROUNDTRIP DOWNLOAD VERIFIED:", len(roundtrip), "bytes; SHA256", EXPECTED)
+          
