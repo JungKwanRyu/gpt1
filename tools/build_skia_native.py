@@ -201,9 +201,13 @@ def main():
     licenses.mkdir(exist_ok=True)
     shutil.copy2(skia / 'LICENSE', licenses / 'Skia-LICENSE')
     for name in DEPENDENCIES:
-        for file in (skia / 'third_party/externals' / name).iterdir():
-            if file.is_file() and re.match(r'(LICENSE|COPYING|COPYRIGHT|FTL)', file.name, re.I):
-                shutil.copy2(file, licenses / (name + '-' + file.name))
+        dependency = skia / 'third_party/externals' / name
+        for file in dependency.rglob('*'):
+            if '.git' in file.relative_to(dependency).parts:
+                continue
+            if file.is_file() and re.match(r'(LICENSE|COPYING|COPYRIGHT|FTL[.]TXT|GPLv2[.]TXT)', file.name, re.I):
+                relative = '-'.join(file.relative_to(dependency).parts)
+                shutil.copy2(file, licenses / (name + '-' + relative))
     manifest = {'skia_commit': SKIA_COMMIT, 'dependencies': deps, 'gn_args': gn_args,
                 'compiler': subprocess.check_output([compiler / 'aarch64-none-elf-g++', '--version'], text=True).splitlines()[0],
                 'archive_bytes': archive.stat().st_size,

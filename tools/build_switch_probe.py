@@ -26,9 +26,22 @@ def main():
     parser.add_argument('--nroforge', required=True, type=Path)
     parser.add_argument('--devkitpro', required=True, type=Path)
     parser.add_argument('--output', type=Path, default=ROOT / 'build/switch-probe')
-    parser.add_argument('--managed', type=Path, help='Use checkpoint 0.2 and overlay published managed DLLs')
+    parser.add_argument('--managed', type=Path, help='Overlay published managed checkpoint DLLs')
+    parser.add_argument('--skia', type=Path, help='Verified native SkiaSharp archive/resolver directory for checkpoint 0.3')
     args = parser.parse_args()
-    version = '0.2.0' if args.managed else '0.1.0'
+    version = '0.3.0' if args.skia else ('0.2.0' if args.managed else '0.1.0')
+    skia_info = None
+    if args.skia:
+        if not args.managed:
+            parser.error('--skia requires --managed')
+        skia_info = json.loads((args.skia / 'build-info.json').read_text())
+        archive = args.skia / 'libSkiaSharp.a'
+        if hashlib.sha256(archive.read_bytes()).hexdigest() != skia_info['archive_sha256']:
+            parser.error('Native SkiaSharp archive hash mismatch')
+        if not (args.skia / 'skia_exports.c').is_file():
+            parser.error('Native SkiaSharp resolver missing')
+        if not (args.managed / 'assets/NanumGothic.ttf').is_file():
+            parser.error('Bundled Korean font missing')
     if args.managed:
         for name in ['WogSwitch.Managed.dll', 'SkiaSharp.dll', 'Mono.Cecil.dll', 'WogShim.dll', 'WogPatcher.dll']:
             if not (args.managed / name).is_file():
@@ -64,9 +77,13 @@ def main():
              '-I' + str(mono / 'artifacts/bin/mono/libnx.arm64.Debug/include/mono-2.0')]
     if args.managed:
         flags += ['-I' + str(sdk / 'sdk/mesa/include'), '-I' + str(devkit / 'portlibs/switch/include')]
+    if args.skia:
+        flags += ['-DWOG_HAS_SKIA=1']
     sources = [ROOT / ('switch/runtime/main.c' if args.managed else 'switch/probe/main.c')] + [shared / f for f in [
         'core.c', 'heap.c', 'io_util.c', 'io_shims.c', 'dl_shim.c',
         'dl_shim_dotnet.c', 'dl_shim_libnx.c', 'third_party/ini/ini.c']]
+    if args.skia:
+        sources += [args.skia / 'skia_exports.c']
     object_files = []
     for i, source in enumerate(sources):
         obj = objects / f'{i}-{source.stem}.o'
@@ -86,6 +103,8 @@ def main():
         libs += [mesa / n for n in ['libEGL.a', 'libglapi.a', 'libvulkan.a']]
         libs += sorted((mesa / 'rust').glob('*.rlib'))
         libs += [portlibs / n for n in ['libdrm_nouveau.a', 'libexpat.a', 'libzstd.a']]
+    if args.skia:
+        libs += [args.skia / 'libSkiaSharp.a']
     elf = output / 'WogSwitchProbe.elf'
     run([cc, *arch, '-specs=' + str(devkit / 'libnx/switch.specs'),
          '-Wl,-Map,' + str(output / 'WogSwitchProbe.map'), *object_files,
@@ -108,6 +127,10 @@ def main():
             if file.name.startswith(('System.', 'Microsoft.')) or file.name in ['mscorlib.dll', 'netstandard.dll']:
                 raise ValueError('Do not replace the matching Switch BCL with desktop assemblies: ' + file.name)
             shutil.copy2(file, managed / file.name)
+    if args.skia:
+        shutil.copytree(args.managed / 'assets', app / 'assets')
+        shutil.copytree(args.skia / 'licenses', app / 'licenses/native-skia')
+        shutil.copy2(args.skia / 'build-info.json', app / 'native-skia-build-info.json')
     shutil.copy2(sdk / 'runtime/mono/etc/icudt77l.dat', app)
     shutil.copy2(ROOT / 'switch/probe/probe.ini', app)
     romfs = output / 'romfs'
@@ -124,7 +147,8 @@ def main():
             manifests.append({'file': str(file.relative_to(output / 'sd')),
                               'bytes': file.stat().st_size,
                               'sha256': hashlib.sha256(file.read_bytes()).hexdigest()})
-    report = {'purpose': ('Managed Wog methods and EGL/input checkpoint; not a game launcher' if args.managed
+    report = {'purpose': ('Native SkiaSharp image/Korean rendering checkpoint; not a game launcher' if args.skia else
+                         'Managed Wog methods and EGL/input checkpoint; not a game launcher' if args.managed
                           else 'Mono interpreter and .NET 10 Wog DLL metadata probe; not a game launcher'),
               'version': version,
               'hardware_tested': False, 'managed_execution_tested': False,
@@ -132,7 +156,9 @@ def main():
               'nroforge_commit': subprocess.check_output(['git', '-C', forge, 'rev-parse', 'HEAD'], text=True).strip(),
               'toolchain_archive_sha256': json.loads((forge / 'toolchain.lock.json').read_text())['sha256'],
               'runtime_framework': 'net9.0-libnx', 'game_libraries_framework': 'net10.0',
-              'missing_game_dependencies': (['Switch native SkiaSharp', 'game platform integration'] if args.managed
+              'native_skia': skia_info,
+              'missing_game_dependencies': (['game platform integration', 'audio/save integration'] if args.skia else
+                                             ['Switch native SkiaSharp', 'game platform integration'] if args.managed
                                              else ['SkiaSharp 3.119.0.0', 'Mono.Cecil 0.11.6.0']),
               'format_checks': {'elf64_aarch64': True, 'nro_and_nacp_romfs': True},
               'files': manifests}

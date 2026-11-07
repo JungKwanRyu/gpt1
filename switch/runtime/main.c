@@ -3,6 +3,7 @@
 #include "core.h"
 #include <EGL/egl.h>
 #include <EGL/eglext.h>
+#include <GLES3/gl3.h>
 #include <stdarg.h>
 #include <stddef.h>
 #include <stdint.h>
@@ -10,6 +11,10 @@
 
 #define ROOT "sdmc:/switch/WogSwitchProbe"
 #define WOG_HANDLE ((void *)(uintptr_t)0xABC02000)
+#if defined(WOG_HAS_SKIA)
+#define SKIA_HANDLE ((void *)(uintptr_t)0xABC02001)
+extern void *wog_skia_symbol(const char *name);
+#endif
 static FILE *report;
 static PadState pad;
 static bool graphics_active, stop_requested;
@@ -20,6 +25,27 @@ static int width = 1280, height = 720, is_gles;
 static void (*clear_color)(float, float, float, float);
 static void (*clear_buffer)(unsigned);
 static void (*viewport)(int, int, int, int);
+static GLuint panel_program, panel_texture, panel_vao;
+static uint32_t expected_pixel;
+static bool readback_checked;
+#define PANEL_GL(X) \
+    X(PFNGLCREATESHADERPROC, CreateShader) X(PFNGLSHADERSOURCEPROC, ShaderSource) \
+    X(PFNGLCOMPILESHADERPROC, CompileShader) X(PFNGLGETSHADERIVPROC, GetShaderiv) \
+    X(PFNGLGETSHADERINFOLOGPROC, GetShaderInfoLog) X(PFNGLDELETESHADERPROC, DeleteShader) \
+    X(PFNGLCREATEPROGRAMPROC, CreateProgram) X(PFNGLATTACHSHADERPROC, AttachShader) \
+    X(PFNGLLINKPROGRAMPROC, LinkProgram) X(PFNGLGETPROGRAMIVPROC, GetProgramiv) \
+    X(PFNGLGETPROGRAMINFOLOGPROC, GetProgramInfoLog) X(PFNGLDELETEPROGRAMPROC, DeleteProgram) \
+    X(PFNGLUSEPROGRAMPROC, UseProgram) X(PFNGLGENTEXTURESPROC, GenTextures) \
+    X(PFNGLBINDTEXTUREPROC, BindTexture) X(PFNGLTEXPARAMETERIPROC, TexParameteri) \
+    X(PFNGLTEXIMAGE2DPROC, TexImage2D) X(PFNGLDELETETEXTURESPROC, DeleteTextures) \
+    X(PFNGLPIXELSTOREIPROC, PixelStorei) X(PFNGLGENVERTEXARRAYSPROC, GenVertexArrays) \
+    X(PFNGLBINDVERTEXARRAYPROC, BindVertexArray) X(PFNGLDELETEVERTEXARRAYSPROC, DeleteVertexArrays) \
+    X(PFNGLGETUNIFORMLOCATIONPROC, GetUniformLocation) X(PFNGLUNIFORM1IPROC, Uniform1i) \
+    X(PFNGLACTIVETEXTUREPROC, ActiveTexture) X(PFNGLDRAWARRAYSPROC, DrawArrays) \
+    X(PFNGLREADPIXELSPROC, ReadPixels) X(PFNGLGETERRORPROC, GetError)
+#define DECLARE_GL(type, name) static type p_##name;
+PANEL_GL(DECLARE_GL)
+#undef DECLARE_GL
 
 void wog_log(const char *text)
 {
@@ -85,6 +111,12 @@ static bool create_context(bool gles)
 void wog_graphics_stop(void)
 {
     if (display != EGL_NO_DISPLAY) {
+        if (context != EGL_NO_CONTEXT) {
+            if (panel_texture && p_DeleteTextures) p_DeleteTextures(1, &panel_texture);
+            if (panel_program && p_DeleteProgram) p_DeleteProgram(panel_program);
+            if (panel_vao && p_DeleteVertexArrays) p_DeleteVertexArrays(1, &panel_vao);
+            panel_texture = panel_program = panel_vao = 0;
+        }
         eglMakeCurrent(display, EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT);
         if (context != EGL_NO_CONTEXT) eglDestroyContext(display, context);
         if (surface != EGL_NO_SURFACE) eglDestroySurface(display, surface);
@@ -144,6 +176,90 @@ void wog_graphics_frame(float r, float g, float b)
     clear_buffer(0x00004000); /* GL_COLOR_BUFFER_BIT */
 }
 
+static GLuint panel_shader(GLenum kind, const char *body)
+{
+    const char *parts[] = { is_gles ? "#version 300 es\nprecision highp float;\n" : "#version 330 core\n", body };
+    GLuint shader = p_CreateShader(kind);
+    p_ShaderSource(shader, 2, parts, NULL);
+    p_CompileShader(shader);
+    GLint ok = 0;
+    p_GetShaderiv(shader, GL_COMPILE_STATUS, &ok);
+    if (!ok) {
+        char message[1024];
+        p_GetShaderInfoLog(shader, sizeof(message), NULL, message);
+        stage("FAIL bitmap shader: %s", message);
+        p_DeleteShader(shader);
+        return 0;
+    }
+    return shader;
+}
+
+static int panel_init(void)
+{
+#define LOAD_GL(type, name) do { p_##name = (type)wog_gl_proc("gl" #name); if (!p_##name) { stage("FAIL GL function: gl" #name); return 0; } } while (0);
+    PANEL_GL(LOAD_GL)
+#undef LOAD_GL
+    GLuint vs = panel_shader(GL_VERTEX_SHADER,
+        "out vec2 uv; void main(){ vec2 p=vec2((gl_VertexID<<1)&2,gl_VertexID&2);"
+        "uv=p; gl_Position=vec4(p*2.0-1.0,0,1); }");
+    GLuint fs = panel_shader(GL_FRAGMENT_SHADER,
+        "in vec2 uv; uniform sampler2D image; out vec4 color;"
+        "void main(){ color=texture(image,vec2(uv.x,1.0-uv.y)); }");
+    if (!vs || !fs) { if (vs) p_DeleteShader(vs); if (fs) p_DeleteShader(fs); return 0; }
+    panel_program = p_CreateProgram();
+    p_AttachShader(panel_program, vs); p_AttachShader(panel_program, fs);
+    p_LinkProgram(panel_program);
+    p_DeleteShader(vs); p_DeleteShader(fs);
+    GLint linked = 0;
+    p_GetProgramiv(panel_program, GL_LINK_STATUS, &linked);
+    if (!linked) {
+        char message[1024]; p_GetProgramInfoLog(panel_program, sizeof(message), NULL, message);
+        stage("FAIL bitmap program: %s", message); return 0;
+    }
+    p_UseProgram(panel_program);
+    p_Uniform1i(p_GetUniformLocation(panel_program, "image"), 0);
+    p_GenVertexArrays(1, &panel_vao);
+    p_GenTextures(1, &panel_texture);
+    p_ActiveTexture(GL_TEXTURE0); p_BindTexture(GL_TEXTURE_2D, panel_texture);
+    p_TexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    p_TexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    p_TexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    p_TexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    return 1;
+}
+
+int wog_upload_bitmap(const void *pixels, int w, int h, int row_bytes)
+{
+    if (!graphics_active || !pixels || w <= 10 || h <= 10 || row_bytes < w * 4 || row_bytes % 4) return 0;
+    if (!panel_program && !panel_init()) return 0;
+    for (int i = 0; i < 8 && p_GetError() != GL_NO_ERROR; i++) { }
+    p_ActiveTexture(GL_TEXTURE0); p_BindTexture(GL_TEXTURE_2D, panel_texture);
+    p_PixelStorei(GL_UNPACK_ALIGNMENT, 4);
+    p_PixelStorei(GL_UNPACK_ROW_LENGTH, row_bytes / 4);
+    p_TexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, w, h, 0, GL_RGBA, GL_UNSIGNED_BYTE, pixels);
+    p_PixelStorei(GL_UNPACK_ROW_LENGTH, 0);
+    memcpy(&expected_pixel, (const uint8_t *)pixels + 10 * row_bytes + 10 * 4, 4);
+    GLenum error = p_GetError();
+    if (error) stage("FAIL bitmap upload GL error: 0x%x", error);
+    return error == GL_NO_ERROR;
+}
+
+void wog_draw_bitmap(void)
+{
+    if (!graphics_active || !panel_program) return;
+    viewport(0, 0, width, height);
+    p_UseProgram(panel_program); p_BindVertexArray(panel_vao);
+    p_ActiveTexture(GL_TEXTURE0); p_BindTexture(GL_TEXTURE_2D, panel_texture);
+    p_DrawArrays(GL_TRIANGLES, 0, 3);
+    if (!readback_checked) {
+        uint32_t actual = 0;
+        p_ReadPixels(10, height - 11, 1, 1, GL_RGBA, GL_UNSIGNED_BYTE, &actual);
+        if (actual == expected_pixel) stage("PASS GPU bitmap readback: CPU/GPU RGBA match");
+        else { stage("FAIL GPU bitmap readback: expected 0x%08x, got 0x%08x", expected_pixel, actual); stop_requested = true; }
+        readback_checked = true;
+    }
+}
+
 void wog_swap(void)
 {
     if (graphics_active && !eglSwapBuffers(display, surface)) {
@@ -186,17 +302,28 @@ void wog_pad(WogPad *out)
 
 static void *bridge_load(const char *name, int flags, char **err, void *user)
 {
+#if defined(WOG_HAS_SKIA)
+    if (name && (!strcmp(name, "libSkiaSharp") || !strcmp(name, "libSkiaSharp.so"))) return SKIA_HANDLE;
+#endif
     if (name && strcmp(name, "WogSwitch") == 0) return WOG_HANDLE;
     return dlshim_loadLibrary(name, flags, err, user);
 }
 
 static void *bridge_symbol(void *handle, const char *name, char **err, void *user)
 {
+#if defined(WOG_HAS_SKIA)
+    if (handle == SKIA_HANDLE) {
+        void *symbol = wog_skia_symbol(name);
+        if (!symbol) stage("FAIL missing native SkiaSharp export: %s", name);
+        return symbol;
+    }
+#endif
     if (handle != WOG_HANDLE) return dlshim_getSymbol(handle, name, err, user);
 #define EXPORT(fn) if (strcmp(name, #fn) == 0) return (void *)(fn)
     EXPORT(wog_log); EXPORT(wog_graphics_start); EXPORT(wog_graphics_stop);
     EXPORT(wog_graphics_frame); EXPORT(wog_gl_proc); EXPORT(wog_swap);
     EXPORT(wog_running); EXPORT(wog_width); EXPORT(wog_height); EXPORT(wog_is_gles); EXPORT(wog_pad);
+    EXPORT(wog_upload_bitmap); EXPORT(wog_draw_bitmap);
 #undef EXPORT
     stage("FAIL unknown bridge export: %s", name);
     return NULL;
@@ -209,7 +336,11 @@ int main(int argc, char **argv)
     mkdir(ROOT, 0777);
     report = fopen(ROOT "/probe.log", "w");
     console_ensure_init();
+#if defined(WOG_HAS_SKIA)
+    stage("WogSwitch checkpoint 0.3 - native SkiaSharp image/Korean rendering; NOT a playable game");
+#else
     stage("WogSwitch checkpoint 0.2 - managed methods + EGL/input; NOT a playable game");
+#endif
     if (!report) { stage("FAIL cannot write probe.log"); goto wait; }
     if (!application_initialize(ROOT "/probe.ini")) { stage("FAIL runtime configuration"); goto wait; }
     application_configure_mono();
