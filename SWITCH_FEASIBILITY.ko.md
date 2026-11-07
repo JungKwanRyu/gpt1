@@ -145,3 +145,26 @@ RGBA 비트맵의 GPU 텍스처 출력과 샘플 픽셀 비교를 구현했다. 
 Skia 자체의 Ganesh/Graphite GPU 컨텍스트는 비활성화한 CPU 빌드다. 게임의 실제
 Skia/GPU 사용 경로, 게임 자료 로딩·패치·시작, 음향·세이브·성능 검증은 남아 있다.
 실행 방법과 범위는 `switch/CHECKPOINT-0.3.ko.md`에 기록했다.
+
+## 0.4 게임 DLL 패치·로딩 구현 — 2026-11-07
+
+공개 PC판 v1.0.86 전체 패키지의 SHA-256을 고정하여 실제 DLL로 호환성 검사를 했다.
+GameLauncher.Prepare는 참조 13개와 P/Invoke 82개를 수정했고, 패치한 DLL 두 개를
+로드해 DuelDx.Program.Main을 찾았다. Main은 호출하지 않았다. 미지원 항목 90개는
+Windows 전용 호출 및 버그 리포트 UI 타입·메서드이며 게임 시작 전에 추가 처리가 필요하다.
+
+스위치용으로 입력 경로 설정, DLL 이름·형식·버전 검사, 원본 읽기 전용 패치,
+출력 해시 검증 캐시, 손상된 캐시 보존·복구, 패치본만 허용하는 DLL 조회를 구현했다.
+설정과 실패 원인·호환성 보고서를 화면 및 파일에 남긴다. PC판 System.* 런타임을
+스위치 BCL 대신 조회하지 않는다. SD 기본 장치를 지정하고 /switch/... 절대 경로를
+사용해 Unix 기반 AssemblyLoadContext의 절대 경로 요구를 맞췄다.
+
+Linux에서 같은 로더 소스로 실제 패치·로딩, 캐시 재사용·손상 복구·원본 변경 감지,
+혼합 버전과 입력/출력 경로 중첩 거부, 원본 DLL 보존 검사가 통과했다.
+공식 PC 패키지에서 필요한 입력 555개만 준비하는 보조 스크립트도 검사했다.
+스위치 NRO 링크와 형식 검사는 통과했으며 실기 결과는 아직 받지 않았다.
+0.3의 스위치 한글·이미지 실기 결과도 미확인이다.
+
+관리 코드 CI: https://github.com/JungKwanRyu/gpt1/actions/runs/42395927871
+실제 게임 파일 CI: https://github.com/JungKwanRyu/gpt1/actions/runs/42395927933
+실행 안내: `switch/CHECKPOINT-0.4.ko.md`.

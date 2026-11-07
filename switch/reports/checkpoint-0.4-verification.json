@@ -1,0 +1,28 @@
+{
+  "version": "0.4.0",
+  "source_commit": "88405290ae23100a892b9f88201ba2240740a82e",
+  "managed_ci_run": 42395927871,
+  "real_game_loader_ci_run": 42395927933,
+  "native_skia_ci_run": 42368654066,
+  "tested_pc_version": "1.0.86.0",
+  "pc_package_sha256": "fa8b26aca5d0f6efe79813c653401e236d85af68d98c04129e2e5e303fbac848",
+  "skia_imports": 877,
+  "skia_exports": 921,
+  "bridge_imports": 13,
+  "unresolved_game_api_items": 90,
+  "desktop_loader_checks": [
+    "actual original game patch",
+    "patched DLL loading and Main lookup",
+    "source DLLs unchanged",
+    "matching DLL versions",
+    "verified cache reuse",
+    "changed cache preservation and repair",
+    "source hash change invalidation",
+    "configuration path separation",
+    "missing file and unknown/duplicate key rejection"
+  ],
+  "switch_nro_build": true,
+  "switch_hardware_tested": false,
+  "game_main_invoked": false,
+  "game_play_tested": false
+}
