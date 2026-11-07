@@ -166,9 +166,20 @@ def main():
     build = skia / 'out/nx'
     run([gn, 'gen', build, '--args=' + encoded], cwd=skia)
     run(['ninja', '-C', build, '-j', args.jobs, 'SkiaSharp'], cwd=skia)
-    archive = build / 'libSkiaSharp.a'
-    if not archive.is_file():
+    primary = build / 'libSkiaSharp.a'
+    if not primary.is_file():
         raise ValueError('Expected the static SkiaSharp archive')
+    # GN intentionally keeps dependencies marked complete_static_lib in
+    # separate archives. Merge the target-toolchain archives with GNU ar's MRI
+    # operation; host-toolchain outputs live in a different subdirectory.
+    archives = sorted(build.glob('*.a'))
+    archive = build / 'libWogSkiaSharp.a'
+    archives = [p for p in archives if p != archive]
+    mri = 'CREATE ' + str(archive) + '\n'
+    mri += ''.join('ADDLIB ' + str(p) + '\n' for p in archives)
+    mri += 'SAVE\nEND\n'
+    subprocess.run([str(compiler / 'aarch64-none-elf-ar'), '-M'], input=mri, text=True, check=True)
+    print('Merged target archives:', [p.name for p in archives], flush=True)
     symbols = subprocess.check_output([compiler / 'aarch64-none-elf-nm', '-g', '--defined-only', archive], text=True)
     print('Archive bytes:', archive.stat().st_size, flush=True)
     exports = sorted(set(re.findall(r'\b[TW]\s+((?:sk_|gr_|skottie_|sksg_|skresources_)[A-Za-z0-9_]+)\s*$', symbols, re.M)))
@@ -177,7 +188,7 @@ def main():
         if required not in exports:
             raise ValueError('Required C API export missing: ' + required)
     output.mkdir(parents=True, exist_ok=True)
-    shutil.copy2(archive, output / archive.name)
+    shutil.copy2(archive, output / 'libSkiaSharp.a')
     # The C resolver uses addresses of real functions from the verified archive.
     resolver = '/* Generated real SkiaSharp C API exports. */\n#include <string.h>\n'
     resolver += ''.join('extern void ' + name + '(void);\n' for name in exports)
