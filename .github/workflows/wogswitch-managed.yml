@@ -17,39 +17,22 @@ jobs:
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: 10.0.x
-      - name: Restore the exact original Wog DLLs from the private diagnostic draft
-        env:
-          GH_TOKEN: ${{ github.token }}
+      - name: Restore hash-pinned DLLs from the public upstream commit
         shell: python
         run: |
-          import hashlib, io, os, urllib.request, urllib.error, urllib.parse, zipfile
+          import hashlib, urllib.request
           from pathlib import Path
-          url = "https://api.github.com/repos/JungKwanRyu/gpt1/releases/assets/720309237"
-          headers = {"Authorization": "Bearer " + os.environ["GH_TOKEN"], "Accept": "application/octet-stream", "User-Agent": "WogSwitch-build"}
-          class NoRedirect(urllib.request.HTTPRedirectHandler):
-              def redirect_request(self, req, fp, code, msg, headers, newurl):
-                  return None
-          try:
-              with urllib.request.build_opener(NoRedirect).open(urllib.request.Request(url, headers=headers), timeout=90) as response:
-                  data = response.read()
-          except urllib.error.HTTPError as error:
-              if error.code not in (301, 302, 303, 307, 308):
-                  raise
-              location = error.headers["Location"]
-              assert urllib.parse.urlsplit(location).hostname in {"release-assets.githubusercontent.com", "objects.githubusercontent.com"}
-              with urllib.request.urlopen(location, timeout=90) as response:
-                  data = response.read()
-          assert hashlib.sha256(data).hexdigest() == "8cb442a1999eeec56c76364f1d52637a45ed5f68174ef32b7e36885193edd067"
+          root = "https://raw.githubusercontent.com/sonicusers/twgios/573576b96fda40ee88a6a2b384de6d87743b73a7/WogiOS_project/libs/"
           target = Path("switch/managed/lib")
           target.mkdir(parents=True, exist_ok=True)
-          with zipfile.ZipFile(io.BytesIO(data)) as archive:
-              for name, expected in [
-                  ("WogShim.dll", "c8f9909fd0d78e2d23cfe58e57838c44d590d5c9ddf530d044e614af9bb786aa"),
-                  ("WogPatcher.dll", "0ef54f0b771eb28f4678ce1fa4c3bb73afce49cdf29fabc1299448e20a52f5e8")]:
-                  raw = archive.read("switch/WogSwitchProbe/managed/" + name)
-                  assert hashlib.sha256(raw).hexdigest() == expected
-                  (target / name).write_bytes(raw)
-          print("Original Wog DLLs verified; no binary source files committed to the public branch.")
+          for name, expected in [
+              ("WogShim.dll", "c8f9909fd0d78e2d23cfe58e57838c44d590d5c9ddf530d044e614af9bb786aa"),
+              ("WogPatcher.dll", "0ef54f0b771eb28f4678ce1fa4c3bb73afce49cdf29fabc1299448e20a52f5e8")]:
+              with urllib.request.urlopen(root + name, timeout=90) as response:
+                  raw = response.read()
+              assert hashlib.sha256(raw).hexdigest() == expected
+              (target / name).write_bytes(raw)
+              print("Verified original public DLL:", name)
           
       - name: Build the platform-neutral managed host
         run: dotnet publish switch/managed/WogSwitch.Managed.csproj -c Release -o output/managed
@@ -62,4 +45,3 @@ jobs:
             output/managed/*.dll
             output/managed/*.json
             output/desktop-smoke.log
-
