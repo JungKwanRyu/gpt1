@@ -52,6 +52,15 @@ void* sk_fdmmap(int, size_t*) { return nullptr; }
 #else
 ''' + original + '\n#endif\n' + data[b:]
         p.write_text(data)
+    # The upstream CPU-only C wrapper omitted its null return argument here.
+    # Preserve its documented unavailable-GPU behavior without enabling Ganesh.
+    p = skia / 'src/c/gr_context.cpp'
+    data = p.read_text()
+    old = 'return SK_ONLY_GPU(ToGrDirectContext(GrAsDirectContext(AsGrRecordingContext(context))));'
+    new = 'return SK_ONLY_GPU(ToGrDirectContext(GrAsDirectContext(AsGrRecordingContext(context))), nullptr);'
+    if old not in data and new not in data:
+        raise ValueError('Upstream direct-context wrapper changed')
+    p.write_text(data.replace(old, new))
 
 
 def main():
@@ -105,7 +114,7 @@ def main():
     symbols = subprocess.check_output([compiler / 'aarch64-none-elf-nm', '-g', '--defined-only', archive], text=True)
     exports = sorted(set(re.findall(r'\b[TW]\s+((?:sk_|gr_|skottie_|sksg_|skresources_)[A-Za-z0-9_]+)\s*$', symbols, re.M)))
     for required in ['sk_version_get_milestone', 'sk_bitmap_new', 'sk_canvas_draw_simple_text',
-                     'sk_typeface_create_from_file', 'sk_font_new_with_values', 'sk_image_encode']:
+                     'sk_typeface_create_from_file', 'sk_font_new_with_values', 'sk_pngencoder_encode']:
         if required not in exports:
             raise ValueError('Required C API export missing: ' + required)
     output.mkdir(parents=True, exist_ok=True)

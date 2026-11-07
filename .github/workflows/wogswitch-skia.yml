@@ -23,6 +23,7 @@ jobs:
           key: nxskia-30ab-gcc15-${{ github.run_id }}
           restore-keys: nxskia-30ab-gcc15-
       - name: Build the real pinned SkiaSharp C API for devkitA64
+        shell: bash
         run: python3 tools/build_skia_native.py --jobs 2 2>&1 | tee skia-build.log
       - uses: actions/cache/save@v4
         if: always()
