@@ -70,6 +70,46 @@ void* sk_fdmmap(int, size_t*) { return nullptr; }
     if line not in data and replacement not in data:
         raise ValueError('Upstream OS loader source list changed')
     p.write_text(data.replace(line, replacement))
+    # Chromium zlib's ARM dispatcher reads Linux auxv/hwcap headers. Use its
+    # supported portable implementation on Horizon, rather than claiming Linux.
+    p = skia / 'third_party/zlib/BUILD.gn'
+    data = p.read_text()
+    old = '  use_arm_neon_optimizations =\n      (current_cpu == "arm" || current_cpu == "arm64") && !(is_win && !is_clang)'
+    new = '  use_arm_neon_optimizations = false  # WOG_SWITCH_PORTABLE_ZLIB'
+    if old not in data and new not in data:
+        raise ValueError('Upstream zlib dispatcher configuration changed')
+    p.write_text(data.replace(old, new))
+    # Match the existing SK_ONLY_GPU convention for newer GPU factories which
+    # upstream forgot to guard in CPU-only builds. Raster implementations stay
+    # intact; GPU creation correctly reports unavailable (null).
+    factories = {
+        'src/c/sk_surface.cpp': ['sk_surface_new_backend_render_target',
+            'sk_surface_new_backend_texture', 'sk_surface_new_render_target'],
+        'src/c/sk_image.cpp': ['sk_image_new_from_texture',
+            'sk_image_new_from_adopted_texture', 'sk_image_make_texture_image'],
+    }
+    for filename, functions in factories.items():
+        p = skia / filename
+        data = p.read_text()
+        for name in functions:
+            pattern = r'(' + name + r'\([^\n]*\) \{\n    return )([^\n]+)(;\n\})'
+            found = re.search(pattern, data)
+            if not found:
+                raise ValueError('Upstream GPU factory changed: ' + name)
+            if not found[2].startswith('SK_ONLY_GPU('):
+                data = data[:found.start(2)] + 'SK_ONLY_GPU(' + found[2] + ', nullptr)' + data[found.end(2):]
+        p.write_text(data)
+    p = skia / 'src/c/sk_image.cpp'
+    data = p.read_text()
+    name = 'sk_image_make_with_filter'
+    pattern = r'(' + name + r'\([^\n]*\) \{\n)(    return [^\n]+;)(\n\})'
+    found = re.search(pattern, data)
+    if found:
+        body = '#if defined(SK_GANESH)\n' + found[2] + '\n#else\n    return sk_image_make_with_filter_raster(cimage, filter, subset, clipBounds, outSubset, outOffset);\n#endif'
+        data = data[:found.start(2)] + body + data[found.end(2):]
+        p.write_text(data)
+    elif 'return sk_image_make_with_filter_raster(cimage, filter' not in data:
+        raise ValueError('Upstream filtered-image factory changed')
 
 
 def main():
