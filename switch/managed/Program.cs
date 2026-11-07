@@ -17,7 +17,7 @@ internal static class Program
         desktop = args.Contains("--desktop-smoke");
         try
         {
-            Log("Managed checkpoint 0.4: real game DLL patch/load validation and image/Korean rendering");
+            Log("Managed checkpoint 0.5: platform patches and optional actual game startup");
             string root = desktop ? Path.GetTempPath() : "/switch/WogSwitchProbe";
             var layout = new GameLayout(Path.Combine(root, "release"), Path.Combine(root, "patched"),
                 Path.Combine(root, "save"), null, Path.Combine(root, "managed/WogShim.dll"));
@@ -52,9 +52,11 @@ internal static class Program
 
             string[] status;
             bool gameCheckFailed = false;
+            LauncherSettings? launchSettings = null;
             try
             {
                 var settings = LauncherSettings.Read(root);
+                launchSettings = settings; host.Settings = settings;
                 if (settings.HasAnyGameDll) status = GameLoader.Run(settings, Log);
                 else
                 {
@@ -90,13 +92,30 @@ internal static class Program
                 RenderPanel.Save(panel, Path.Combine(root, "render.png"));
                 Require(Native.wog_upload_bitmap(panel.GetPixels(), panel.Width, panel.Height, panel.RowBytes) != 0, "GPU bitmap upload");
                 Log("PASS Skia bitmap GPU upload");
-                Log("DISPLAY TEST: Korean text and checker image; A changes the banner. PLUS exits.");
+                PlatformGameBridge.Notice = text => host.ShowMessage("스위치 안내", text);
+                Log("DISPLAY TEST: A changes banner; X invokes real game Main once; PLUS exits.");
                 bool lastPressed = false;
                 bool padLogged = false;
+                bool started = false, lastX = false;
                 while (Native.wog_running() != 0)
                 {
                     var state = host.ReadPad();
                     bool pressed = (state.Buttons & 0x1000) != 0;
+                    bool x = (state.Buttons & 0x4000) != 0;
+                    if (x && !lastX && !started && !gameCheckFailed && launchSettings?.HasAnyGameDll == true)
+                    {
+                        started = true;
+                        host.BeginGame();
+                        int code;
+                        try { code = GameSession.Start(launchSettings, Log, () => host.Frames); }
+                        finally { host.EndGame(); }
+                        status = new[] { "게임 시작 시도 종료 — code " + code, "Main 호출 / 출력 프레임 " + host.Frames,
+                            "자세한 결과: game-start.txt", "다시 시도하려면 앱을 재실행해 주세요" };
+                        using var resultPanel = RenderPanel.Create(fontFile, false, status);
+                        RenderPanel.Save(resultPanel, Path.Combine(root, "render.png"));
+                        Require(Native.wog_upload_bitmap(resultPanel.GetPixels(), resultPanel.Width, resultPanel.Height, resultPanel.RowBytes) != 0, "Startup result upload");
+                    }
+                    lastX = x;
                     if (pressed && !padLogged)
                     {
                         Log("PASS controller input: Switch A reached WogShim XInput.State");
@@ -132,32 +151,6 @@ internal static class Program
     {
         if (desktop) Console.WriteLine(line);
         else Native.wog_log(line);
-    }
-}
-
-internal sealed class SwitchHost(bool desktop) : IHost
-{
-    public (int W, int H) SurfaceSize => desktop ? (640, 360) : (Native.wog_width(), Native.wog_height());
-    public bool IsGles => !desktop && Native.wog_is_gles() != 0;
-    public bool ListDrives => false;
-    public bool HasTouch => false;
-    public nint GetProcAddress(string name) => Native.wog_gl_proc(name);
-    public void SwapBuffers() => Native.wog_swap();
-    public void PumpEvents() => Native.wog_running();
-    public void ShowMessage(string caption, string text) => Program.Log(caption + ": " + text);
-    public int Ask(string caption, string text, string[] buttons) =>
-        throw new NotSupportedException("Interactive dialogs are not implemented in checkpoint 0.2.");
-    public string PickFolder(string description) =>
-        throw new NotSupportedException("Game folder selection is not implemented in checkpoint 0.2.");
-    public IAudioSink OpenAudio(int sampleRate, int channels, int bitsPerSample) =>
-        throw new NotSupportedException("Audio is not implemented in checkpoint 0.2.");
-
-    internal XInput.State ReadPad()
-    {
-        Native.wog_pad(out Native.Pad p);
-        return new XInput.State { PacketNumber = p.Packet, Buttons = p.Buttons,
-            LeftTrigger = p.LeftTrigger, RightTrigger = p.RightTrigger,
-            ThumbLX = p.LX, ThumbLY = p.LY, ThumbRX = p.RX, ThumbRY = p.RY };
     }
 }
 
@@ -198,4 +191,8 @@ internal static class Native
     internal static extern int wog_upload_bitmap(nint pixels, int width, int height, int rowBytes);
     [DllImport("WogSwitch", CallingConvention = CallingConvention.Cdecl)]
     internal static extern void wog_draw_bitmap();
+    [DllImport("WogSwitch", CallingConvention = CallingConvention.Cdecl)]
+    internal static extern int wog_dialog_begin();
+    [DllImport("WogSwitch", CallingConvention = CallingConvention.Cdecl)]
+    internal static extern void wog_dialog_end();
 }

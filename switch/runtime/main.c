@@ -46,10 +46,19 @@ static bool readback_checked;
     X(PFNGLBINDVERTEXARRAYPROC, BindVertexArray) X(PFNGLDELETEVERTEXARRAYSPROC, DeleteVertexArrays) \
     X(PFNGLGETUNIFORMLOCATIONPROC, GetUniformLocation) X(PFNGLUNIFORM1IPROC, Uniform1i) \
     X(PFNGLACTIVETEXTUREPROC, ActiveTexture) X(PFNGLDRAWARRAYSPROC, DrawArrays) \
-    X(PFNGLREADPIXELSPROC, ReadPixels) X(PFNGLGETERRORPROC, GetError)
+    X(PFNGLREADPIXELSPROC, ReadPixels) X(PFNGLGETERRORPROC, GetError) \
+    X(PFNGLGETINTEGERVPROC, GetIntegerv) X(PFNGLGETBOOLEANVPROC, GetBooleanv) \
+    X(PFNGLISENABLEDPROC, IsEnabled) X(PFNGLENABLEPROC, Enable) X(PFNGLDISABLEPROC, Disable) \
+    X(PFNGLCOLORMASKPROC, ColorMask) X(PFNGLBINDFRAMEBUFFERPROC, BindFramebuffer)
 #define DECLARE_GL(type, name) static type p_##name;
 PANEL_GL(DECLARE_GL)
 #undef DECLARE_GL
+static struct {
+    bool active;
+    GLint program, vao, draw_fb, read_fb, texture_unit, texture0, viewport[4], unpack_align, unpack_row;
+    GLboolean flags[5], color_mask[4];
+} dialog_state;
+static const GLenum dialog_caps[] = { GL_BLEND, GL_DEPTH_TEST, GL_STENCIL_TEST, GL_SCISSOR_TEST, GL_CULL_FACE };
 
 void wog_log(const char *text)
 {
@@ -248,9 +257,47 @@ int wog_upload_bitmap(const void *pixels, int w, int h, int row_bytes)
     return error == GL_NO_ERROR;
 }
 
+int wog_dialog_begin(void)
+{
+    if (!graphics_active || dialog_state.active || (!panel_program && !panel_init())) return 0;
+    p_GetIntegerv(GL_CURRENT_PROGRAM, &dialog_state.program);
+    p_GetIntegerv(GL_VERTEX_ARRAY_BINDING, &dialog_state.vao);
+    p_GetIntegerv(GL_DRAW_FRAMEBUFFER_BINDING, &dialog_state.draw_fb);
+    p_GetIntegerv(GL_READ_FRAMEBUFFER_BINDING, &dialog_state.read_fb);
+    p_GetIntegerv(GL_ACTIVE_TEXTURE, &dialog_state.texture_unit);
+    p_ActiveTexture(GL_TEXTURE0); p_GetIntegerv(GL_TEXTURE_BINDING_2D, &dialog_state.texture0);
+    p_GetIntegerv(GL_VIEWPORT, dialog_state.viewport);
+    p_GetIntegerv(GL_UNPACK_ALIGNMENT, &dialog_state.unpack_align);
+    p_GetIntegerv(GL_UNPACK_ROW_LENGTH, &dialog_state.unpack_row);
+    p_GetBooleanv(GL_COLOR_WRITEMASK, dialog_state.color_mask);
+    for (unsigned i = 0; i < sizeof(dialog_caps)/sizeof(dialog_caps[0]); i++) dialog_state.flags[i] = p_IsEnabled(dialog_caps[i]);
+    dialog_state.active = true;
+    return 1;
+}
+
+void wog_dialog_end(void)
+{
+    if (!dialog_state.active) return;
+    p_UseProgram(dialog_state.program); p_BindVertexArray(dialog_state.vao);
+    p_BindFramebuffer(GL_DRAW_FRAMEBUFFER, dialog_state.draw_fb);
+    p_BindFramebuffer(GL_READ_FRAMEBUFFER, dialog_state.read_fb);
+    p_ActiveTexture(GL_TEXTURE0); p_BindTexture(GL_TEXTURE_2D, dialog_state.texture0);
+    p_ActiveTexture(dialog_state.texture_unit);
+    viewport(dialog_state.viewport[0], dialog_state.viewport[1], dialog_state.viewport[2], dialog_state.viewport[3]);
+    p_PixelStorei(GL_UNPACK_ALIGNMENT, dialog_state.unpack_align); p_PixelStorei(GL_UNPACK_ROW_LENGTH, dialog_state.unpack_row);
+    p_ColorMask(dialog_state.color_mask[0], dialog_state.color_mask[1], dialog_state.color_mask[2], dialog_state.color_mask[3]);
+    for (unsigned i = 0; i < sizeof(dialog_caps)/sizeof(dialog_caps[0]); i++) {
+        if (dialog_state.flags[i]) p_Enable(dialog_caps[i]); else p_Disable(dialog_caps[i]);
+    }
+    dialog_state.active = false;
+}
+
 void wog_draw_bitmap(void)
 {
     if (!graphics_active || !panel_program) return;
+    p_BindFramebuffer(GL_FRAMEBUFFER, 0);
+    for (unsigned i = 0; i < sizeof(dialog_caps)/sizeof(dialog_caps[0]); i++) p_Disable(dialog_caps[i]);
+    p_ColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
     viewport(0, 0, width, height);
     p_UseProgram(panel_program); p_BindVertexArray(panel_vao);
     p_ActiveTexture(GL_TEXTURE0); p_BindTexture(GL_TEXTURE_2D, panel_texture);
@@ -328,6 +375,7 @@ static void *bridge_symbol(void *handle, const char *name, char **err, void *use
     EXPORT(wog_graphics_frame); EXPORT(wog_gl_proc); EXPORT(wog_swap);
     EXPORT(wog_running); EXPORT(wog_width); EXPORT(wog_height); EXPORT(wog_is_gles); EXPORT(wog_pad);
     EXPORT(wog_upload_bitmap); EXPORT(wog_draw_bitmap);
+    EXPORT(wog_dialog_begin); EXPORT(wog_dialog_end);
 #undef EXPORT
     stage("FAIL unknown bridge export: %s", name);
     return NULL;
@@ -341,7 +389,7 @@ int main(int argc, char **argv)
     report = fopen(ROOT "/probe.log", "w");
     console_ensure_init();
 #if defined(WOG_GAME_LOADER)
-    stage("WogSwitch checkpoint %s - game DLL patch/load validation; Main is NOT invoked", WOG_CHECKPOINT_VERSION);
+    stage("WogSwitch checkpoint %s - platform patches and optional real game startup", WOG_CHECKPOINT_VERSION);
 #elif defined(WOG_HAS_SKIA)
     stage("WogSwitch checkpoint 0.3 - native SkiaSharp image/Korean rendering; NOT a playable game");
 #else

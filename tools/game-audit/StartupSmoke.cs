@@ -13,6 +13,13 @@ internal static class StartupSmoke
         }
         var host = new CancelHost(); Host.Use(host); Host.LogSink = Console.WriteLine;
         PlatformGameBridge.Notice = text => Console.WriteLine("NOTICE " + text);
+        foreach (string file in WogPatcher.GamePatcher.GameAssemblies)
+        {
+            using var assembly = Mono.Cecil.AssemblyDefinition.ReadAssembly(Path.Combine(patched, file));
+            if (assembly.MainModule.GetTypes().SelectMany(t => t.Methods).Any(m => m.IsPInvokeImpl))
+                throw new InvalidDataException("An unhandled game P/Invoke remains: " + file);
+        }
+        Console.WriteLine("PASS no direct native imports remain in the two patched game DLLs");
         int code = GameSession.Start(settings, Console.WriteLine);
         if (code != 0 || host.AskCount == 0 || host.GraphicsCalls != 0)
             throw new InvalidDataException("Actual Main should reach the original-folder prompt and return after cancel: code=" + code + ", asks=" + host.AskCount + ", graphics=" + host.GraphicsCalls);
@@ -25,6 +32,11 @@ internal static class StartupSmoke
         var shot = reportType.GetMethod("ShotIfAsked", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static)!;
         if (!Equals(shot.Invoke(null, null), false)) throw new InvalidDataException("Report screenshot hook still runs");
         Console.WriteLine("PASS rewritten startup report hook executes and returns false");
+        int notices = 0; PlatformGameBridge.Notice = _ => notices++;
+        reportType.GetMethod("Show", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static)!.Invoke(null, new object?[] { null });
+        var ask = game.GetType("DuelDx.BugReportDialog", true)!.GetMethod("Ask", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static)!;
+        if (ask.Invoke(null, new object?[] { null, "test" }) != null || notices != 2) throw new InvalidDataException("Report dialogs did not execute their notice/cancel replacements");
+        Console.WriteLine("PASS report UI entry points execute the host notice and cancel without WinForms controls");
         try { PlatformGameBridge.Exit(7); } catch (GameExitException ex) when (ex.ExitCode == 7) { Console.WriteLine("PASS controlled game exit preserves the host process"); }
     }
 

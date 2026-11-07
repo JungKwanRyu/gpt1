@@ -6,9 +6,9 @@ namespace WogSwitch;
 
 internal static class GameSession
 {
-    internal static int Start(LauncherSettings settings, Action<string> log)
+    internal static int Start(LauncherSettings settings, Action<string> log, Func<int>? presentedFrames = null)
     {
-        var lines = new List<string> { "WogSwitch 0.5 game startup", "Main invoked: no", "First frame: not observed" };
+        var lines = new List<string> { "WogSwitch 0.5 game startup", "Main invoked: no", "Frames observed at start: 0" };
         void Record(string line) { lines.Add(line); log(line); }
         object? oldBase = AppContext.GetData("APP_CONTEXT_BASE_DIRECTORY");
         var variables = new[] { "DUELDX_SAVEDIR", "WAROFGENESIS_ORIGINAL", "WAROFGENESIS_PART1", "WAROFGENESIS_ASSETS" };
@@ -51,6 +51,7 @@ internal static class GameSession
         }
         finally
         {
+            lines.Add("Game frames presented: " + (presentedFrames?.Invoke() ?? 0));
             AppContext.SetData("APP_CONTEXT_BASE_DIRECTORY", oldBase);
             foreach (var variable in previous) Environment.SetEnvironmentVariable(variable.Key, variable.Value);
             File.WriteAllLines(Path.Combine(settings.Root, "game-start.txt"), lines);

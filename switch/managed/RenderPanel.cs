@@ -53,7 +53,7 @@ internal static class RenderPanel
             paint.Color = SKColors.White;
             canvas.DrawText("한글 가나다라마", 380, 366, body, paint);
             canvas.DrawText("이미지와 글꼴이 함께 표시됩니다", 380, 422, small, paint);
-            canvas.DrawText("0.4 — 게임 DLL 로딩 확인", 380, 478, small, paint);
+            canvas.DrawText("0.5 — X 버튼으로 게임 시작 시도", 380, 478, small, paint);
             if (status != null)
             {
                 paint.Color = new SKColor(13, 23, 42);
