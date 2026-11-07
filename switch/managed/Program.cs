@@ -46,6 +46,9 @@ internal static class Program
                 string fontFile = Path.Combine(AppContext.BaseDirectory, "assets/NanumGothic.ttf");
                 using var panel = RenderPanel.Create(fontFile, false);
                 RenderPanel.Save(panel, Path.Combine(AppContext.BaseDirectory, "render-desktop.png"));
+                using var dialog = DialogPanel.Create(fontFile, "창세기전3 원본 폴더 선택", "원본 자료 경로를 확인해 주세요.\n컨트롤러로 선택하고 A로 확인합니다.",
+                    new[] { "파트2 폴더 고르기", "파트1 폴더 고르기", "끝내기" }, 1);
+                RenderPanel.Save(dialog, Path.Combine(AppContext.BaseDirectory, "render-dialog-desktop.png"));
                 Log("PASS DESKTOP SMOKE COMPLETE");
                 return 0;
             }
@@ -176,7 +179,7 @@ internal static class Native
     [DllImport("WogSwitch", CallingConvention = CallingConvention.Cdecl)]
     internal static extern nint wog_gl_proc([MarshalAs(UnmanagedType.LPUTF8Str)] string name);
     [DllImport("WogSwitch", CallingConvention = CallingConvention.Cdecl)]
-    internal static extern void wog_swap();
+    internal static extern int wog_swap();
     [DllImport("WogSwitch", CallingConvention = CallingConvention.Cdecl)]
     internal static extern int wog_running();
     [DllImport("WogSwitch", CallingConvention = CallingConvention.Cdecl)]

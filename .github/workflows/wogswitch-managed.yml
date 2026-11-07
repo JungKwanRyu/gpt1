@@ -68,4 +68,5 @@ jobs:
             output/desktop-smoke.log
             output/managed/assets/
             output/managed/render-desktop.png
+            output/managed/render-dialog-desktop.png
 

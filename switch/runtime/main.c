@@ -311,12 +311,15 @@ void wog_draw_bitmap(void)
     }
 }
 
-void wog_swap(void)
+int wog_swap(void)
 {
-    if (graphics_active && !eglSwapBuffers(display, surface)) {
+    if (!graphics_active) return 0;
+    if (!eglSwapBuffers(display, surface)) {
         stage("FAIL eglSwapBuffers: 0x%x", eglGetError());
         stop_requested = true;
+        return 0;
     }
+    return 1;
 }
 
 int wog_running(void)

@@ -28,8 +28,8 @@ internal sealed class SwitchHost(bool desktop) : IHost
 
     public void SwapBuffers()
     {
-        Native.wog_swap();
-        if (gameActive && ++Frames == 1) Program.Log("PASS FIRST GAME FRAME PRESENTED through WogShim host (visual correctness unverified)");
+        if (Native.wog_swap() == 0) throw new InvalidOperationException("Game buffer presentation failed");
+        if (gameActive && ++Frames == 1) Program.Log("PASS GAME HOST FRAME PRESENTED (frame content and gameplay unverified)");
     }
 
     public void PumpEvents()
@@ -84,7 +84,8 @@ internal sealed class SwitchHost(bool desktop) : IHost
                         throw new InvalidOperationException("Dialog bitmap upload failed");
                     drawn = selected;
                 }
-                Native.wog_draw_bitmap(); Native.wog_swap();
+                Native.wog_draw_bitmap();
+                if (Native.wog_swap() == 0) throw new InvalidOperationException("Dialog buffer presentation failed");
             }
             ExitRequested = true; User32.PostQuitMessage(0); return -1;
         }
