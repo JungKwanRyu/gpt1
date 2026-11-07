@@ -1,0 +1,30 @@
+{
+  "version": "0.5.0",
+  "source_commit": "ec994e87c6023e9401b217a6d66e9e18b3fcd4c2",
+  "managed_ci_run": 42406056725,
+  "real_game_startup_ci_run": 42406056693,
+  "native_skia_ci_run": 42368654066,
+  "tested_pc_version": "1.0.86.0",
+  "original_patcher_missing": 90,
+  "post_platform_patcher_missing": 0,
+  "direct_game_pinvokes_remaining": 0,
+  "skia_imports": 877,
+  "skia_exports": 921,
+  "bridge_imports": 15,
+  "desktop_actual_main_invoked": true,
+  "desktop_original_folder_dialog_cancel_returned": true,
+  "desktop_main_gameplay_frames": 0,
+  "desktop_missing_assets_blocks_main": true,
+  "desktop_dialog_gles3_rgba_and_state_restore": true,
+  "desktop_dialog_gl3_rgba_and_state_restore": true,
+  "switch_nro_build": true,
+  "switch_hardware_tested": false,
+  "gameplay_verified": false,
+  "audio_output_available": false,
+  "remaining": [
+    "Switch hardware verification of Skia/patcher/startup",
+    "original-data title and battle validation",
+    "PCM audio output",
+    "save/load integration and performance"
+  ]
+}

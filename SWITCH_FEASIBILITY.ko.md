@@ -168,3 +168,27 @@ Linux에서 같은 로더 소스로 실제 패치·로딩, 캐시 재사용·손
 관리 코드 CI: https://github.com/JungKwanRyu/gpt1/actions/runs/42395927871
 실제 게임 파일 CI: https://github.com/JungKwanRyu/gpt1/actions/runs/42395927933
 실행 안내: `switch/CHECKPOINT-0.4.ko.md`.
+
+## 0.5 플랫폼 패치와 실제 Main 호출 — 2026-11-07
+
+원본 패처가 v1.0.86에서 보고한 미지원 90개는 Windows 전원/DPI 호출과 버그 리포트
+WinForms UI 의존성을 처리한 뒤, 같은 공개 패처로 재검사하여 0개가 됐다.
+버그 리포트 창은 호스트 안내 메시지로 대체하고 PC 전용 폴더 검색은 설정 경로로
+교체했다. Windows UI의 모든 기능을 구현했다는 의미는 아니다.
+
+Linux에서 실제 게임 Main을 호출해 원본 폴더 선택 안내에 도달했고 취소 후 정상
+복귀했다. 직접 P/Invoke가 두 패치 게임 DLL에 남지 않은 것을 확인했다.
+버그 리포트 진입점 대체 함수도 실제 호출했다. PC 동봉 assets가 없을 때는 Main
+호출 전에 거부한다. 스위치에서는 X로 한 번 시작하고 요청한 안내창을 패드로 조작한다.
+종료·오류는 관리 예외로 호스트에 돌려주며 game-start.txt에 호출과 결과를 기록한다.
+
+GLES 3 / GL 3에서 실제 네이티브 화면 코드를 추출·컴파일해 전체 RGBA 픽셀 일치와
+안내창 종료 후 그래픽 상태 복원을 검사했다. 스위치 NRO 링크·형식 검사도 통과했다.
+이것은 실기나 타이틀·게임 플레이의 성공 판정이 아니다.
+
+PCM 출력은 아직 연결하지 않았다. 원본 자료를 사용한 타이틀·전투, 저장/불러오기,
+성능 및 0.3~0.5 스위치 실기 검증은 남아 있다.
+
+관리 코드 CI: https://github.com/JungKwanRyu/gpt1/actions/runs/42406056725
+실제 Main 검사 CI: https://github.com/JungKwanRyu/gpt1/actions/runs/42406056693
+실행 안내: `switch/CHECKPOINT-0.5.ko.md`.
