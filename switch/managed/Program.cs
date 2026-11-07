@@ -17,7 +17,7 @@ internal static class Program
         desktop = args.Contains("--desktop-smoke");
         try
         {
-            Log("Managed checkpoint 0.2: original Wog DLL method execution");
+            Log("Managed checkpoint 0.3: real SkiaSharp image and Korean rendering");
             string root = desktop ? Path.GetTempPath() : "sdmc:/switch/WogSwitchProbe";
             var layout = new GameLayout(Path.Combine(root, "release"), Path.Combine(root, "patched"),
                 Path.Combine(root, "save"), null, Path.Combine(root, "managed/WogShim.dll"));
@@ -43,6 +43,9 @@ internal static class Program
                 canvas.Clear(SKColors.CornflowerBlue);
                 Require(bitmap.GetPixel(5, 5) == SKColors.CornflowerBlue, "Skia desktop raster pixels");
                 Log("PASS desktop SkiaSharp raster check (does not prove Switch native Skia support)");
+                string fontFile = Path.Combine(AppContext.BaseDirectory, "assets/NanumGothic.ttf");
+                using var panel = RenderPanel.Create(fontFile, false);
+                RenderPanel.Save(panel, Path.Combine(AppContext.BaseDirectory, "render-desktop.png"));
                 Log("PASS DESKTOP SMOKE COMPLETE");
                 return 0;
             }
@@ -58,8 +61,14 @@ internal static class Program
                 GlLoader.Load(host.GetProcAddress);
                 Log("PASS WogShim GlLoader.Load: managed-to-native GL function pointers");
                 XInput.Poll = host.ReadPad;
-                Log("DISPLAY TEST: blue/green background, red while A is pressed. PLUS exits.");
-                Log("SkiaSharp native rendering, game assets and audio are not exercised by this checkpoint.");
+                string fontFile = Path.Combine(root, "assets/NanumGothic.ttf");
+                Fonts.OverrideFile = fontFile;
+                using var panel = RenderPanel.Create(fontFile, false);
+                RenderPanel.Save(panel, Path.Combine(root, "render.png"));
+                Require(Native.wog_upload_bitmap(panel.GetPixels(), panel.Width, panel.Height, panel.RowBytes) != 0, "GPU bitmap upload");
+                Log("PASS Skia bitmap GPU upload");
+                Log("DISPLAY TEST: Korean text and checker image; A changes the banner. PLUS exits.");
+                bool lastPressed = false;
                 bool padLogged = false;
                 while (Native.wog_running() != 0)
                 {
@@ -70,7 +79,13 @@ internal static class Program
                         Log("PASS controller input: Switch A reached WogShim XInput.State");
                         padLogged = true;
                     }
-                    Native.wog_graphics_frame(pressed ? 0.8f : 0.05f, pressed ? 0.08f : 0.32f, pressed ? 0.08f : 0.65f);
+                    if (pressed != lastPressed)
+                    {
+                        using var updated = RenderPanel.Create(fontFile, pressed);
+                        Require(Native.wog_upload_bitmap(updated.GetPixels(), updated.Width, updated.Height, updated.RowBytes) != 0, "Updated bitmap upload");
+                        lastPressed = pressed;
+                    }
+                    Native.wog_draw_bitmap();
                     host.SwapBuffers();
                 }
                 Log("PASS managed graphics/input loop completed");
@@ -156,4 +171,8 @@ internal static class Native
     internal static extern int wog_is_gles();
     [DllImport("WogSwitch", CallingConvention = CallingConvention.Cdecl)]
     internal static extern void wog_pad(out Pad pad);
+    [DllImport("WogSwitch", CallingConvention = CallingConvention.Cdecl)]
+    internal static extern int wog_upload_bitmap(nint pixels, int width, int height, int rowBytes);
+    [DllImport("WogSwitch", CallingConvention = CallingConvention.Cdecl)]
+    internal static extern void wog_draw_bitmap();
 }
