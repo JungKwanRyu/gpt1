@@ -9,11 +9,11 @@ namespace WogSwitch;
 
 internal sealed record PreparedGame(string Directory, string Version, bool CacheHit,
     string[] Missing, Dictionary<string, string> SourceHashes);
-internal sealed record LoadedGame(string Version, int Assemblies, string EntryPoint, int Missing);
+internal sealed record LoadedGame(string Version, int Assemblies, string EntryPoint, int Missing, MethodInfo Main);
 
 internal static class GameLoader
 {
-    private const string CacheVersion = "wog-switch-loader-0.4-v1";
+    private const string CacheVersion = "wog-switch-loader-0.5-v1";
 
     internal static string Digest(string filename)
     {
@@ -46,7 +46,8 @@ internal static class GameLoader
         if (!File.Exists(settings.ShimPath)) throw new FileNotFoundException("Bundled WogShim missing", settings.ShimPath);
         string patcherPath = Path.Combine(settings.Root, "managed", "WogPatcher.dll");
         if (!File.Exists(patcherPath)) throw new FileNotFoundException("Bundled WogPatcher missing", patcherPath);
-        string material = CacheVersion + "\n" + Digest(settings.ShimPath) + "\n" + Digest(patcherPath) + "\n" +
+        string material = CacheVersion + "\n" + PlatformPatches.Version + "\n" + typeof(PlatformGameBridge).Assembly.ManifestModule.ModuleVersionId +
+            "\n" + Digest(settings.ShimPath) + "\n" + Digest(patcherPath) + "\n" +
             string.Join("\n", GamePatcher.GameAssemblies.Select(n => n + ":" + hashes[n]));
         string key;
         using (var sha = SHA256.Create()) key = Convert.ToHexString(sha.ComputeHash(Encoding.UTF8.GetBytes(material))).ToLowerInvariant();
@@ -65,8 +66,19 @@ internal static class GameLoader
             if (!Path.GetFullPath(prepared).Equals(directory, StringComparison.Ordinal))
                 throw new InvalidDataException("Patcher returned an unexpected output folder");
             var report = GameLauncher.LastReport ?? throw new InvalidDataException("Patcher did not return a compatibility report");
-            File.WriteAllText(Path.Combine(directory, "compatibility.txt"), report.ToString());
-            File.WriteAllLines(Path.Combine(directory, "missing.txt"), report.Missing);
+            File.WriteAllText(Path.Combine(directory, "upstream-compatibility.txt"), report.ToString());
+            var changes = new List<string>();
+            PlatformPatches.Apply(directory, line => { changes.Add(line); log(line); });
+            File.WriteAllLines(Path.Combine(directory, "platform-patches.txt"), changes);
+            // Re-run the original public patcher/validator on the rewritten DLLs.
+            // Its report, rather than a filtered list of old warnings, is authoritative.
+            string verified = Path.Combine(directory, "verified");
+            var finalReport = GamePatcher.Patch(directory, settings.ShimPath, verified);
+            File.WriteAllText(Path.Combine(directory, "compatibility.txt"), finalReport.ToString());
+            File.WriteAllLines(Path.Combine(directory, "missing.txt"), finalReport.Missing);
+            foreach (string name in GamePatcher.GameAssemblies)
+                File.Copy(Path.Combine(verified, name), Path.Combine(directory, name), true);
+            log("Post-platform-patch compatibility: " + finalReport.Missing.Count + " unresolved items");
             foreach (string name in GamePatcher.GameAssemblies)
             {
                 using var patched = AssemblyDefinition.ReadAssembly(Path.Combine(directory, name));
@@ -83,7 +95,7 @@ internal static class GameLoader
         return new PreparedGame(directory, version!.ToString(), cached, missing, hashes);
     }
 
-    private static IEnumerable<string> CacheFiles() => GamePatcher.GameAssemblies.Concat(new[] { "compatibility.txt", "missing.txt" });
+    private static IEnumerable<string> CacheFiles() => GamePatcher.GameAssemblies.Concat(new[] { "compatibility.txt", "missing.txt", "upstream-compatibility.txt", "platform-patches.txt" });
 
     private static bool CacheValid(string directory)
     {
@@ -142,14 +154,14 @@ internal static class GameLoader
                 throw new MissingMethodException("Unsupported DuelDx.Program.Main signature");
             log("PASS patched game entry point lookup: " + main);
             log("LOAD CHECK COMPLETE; Main was not invoked; unresolved items=" + prepared.Missing.Length);
-            return new LoadedGame(prepared.Version, count, main.ToString()!, prepared.Missing.Length);
+            return new LoadedGame(prepared.Version, count, main.ToString()!, prepared.Missing.Length, main);
         }
         finally { AssemblyLoadContext.Default.Resolving -= Resolve; }
     }
 
     internal static string[] Run(LauncherSettings settings, Action<string> log)
     {
-        var report = new List<string> { "WogSwitch 0.4 game DLL patch/load check", "Main invoked: no",
+        var report = new List<string> { "WogSwitch 0.5 game DLL patch/load check", "Main invoked: no",
             "PC release: " + settings.ReleaseDir, "Part 2 folder detected: " + settings.Part2Present,
             "Part 1 folder detected: " + settings.Part1Present, "Game assets/characters detected: " +
                 System.IO.Directory.Exists(Path.Combine(settings.GameAssets, "characters")) };
@@ -163,7 +175,7 @@ internal static class GameLoader
             report.Add("Compatibility report follows:");
             report.AddRange(prepared.Missing);
             return new[] { "게임 DLL 패치·로딩 확인 완료", "PC version " + loaded.Version + " / DLLs " + loaded.Assemblies,
-                "미지원 항목 " + loaded.Missing + "개 — 게임 실행은 다음 단계", "결과: load-report.txt / probe.log" };
+                "미지원 항목 " + loaded.Missing + "개 — X 버튼으로 시작 시도", "결과: load-report.txt / probe.log" };
         }
         catch (Exception ex)
         {

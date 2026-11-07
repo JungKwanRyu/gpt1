@@ -3,12 +3,12 @@ on:
   push:
     branches:
       - codex/wogswitch-game-loader
+      - codex/wogswitch-startup
     paths:
       - tools/game-audit/**
       - tools/fetch_game_fixture.py
       - tools/prepare_game_files.py
-      - switch/managed/GameLoader.cs
-      - switch/managed/LauncherSettings.cs
+      - switch/managed/**
       - .github/workflows/wogswitch-game-audit.yml
 permissions:
   contents: read

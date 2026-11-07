@@ -41,7 +41,8 @@ internal static class LoaderSmoke
         foreach (string file in GamePatcher.GameAssemblies) File.Copy(Path.Combine(fixture, file), Path.Combine(release, file), true);
         var originalHashes = GamePatcher.GameAssemblies.ToDictionary(n => n, n => GameLoader.Digest(Path.Combine(release, n)));
         var first = GameLoader.Prepare(settings, Console.WriteLine);
-        Require(!first.CacheHit && first.Missing.Length > 0, "real PC game patches and retains the unresolved compatibility report");
+        Require(!first.CacheHit && first.Missing.Length == 0, "real PC game platform patches pass the original patcher's compatibility recheck");
+        Require(File.ReadAllText(Path.Combine(first.Directory, "upstream-compatibility.txt")).Contains("missing 90"), "the original 90-item report is preserved separately");
         var second = GameLoader.Prepare(settings, Console.WriteLine);
         Require(second.CacheHit && second.Directory == first.Directory && second.Missing.SequenceEqual(first.Missing), "cache reuse verifies DLL hashes and keeps the compatibility warnings");
         File.AppendAllText(Path.Combine(first.Directory, "WarOfGenesis.dll"), "tampered-cache");
@@ -74,5 +75,6 @@ internal static class LoaderSmoke
         File.Copy(Path.Combine(first.Directory, "compatibility.txt"), Path.Combine(output, "patch-report.txt"), true);
         File.WriteAllLines(Path.Combine(output, "loader-smoke-summary.txt"), summary);
         Console.WriteLine("PASS REAL GAME LOADER SMOKE COMPLETE; Main was not invoked");
+        StartupSmoke.Run(fixture, root, output, settings, first.Directory);
     }
 }
