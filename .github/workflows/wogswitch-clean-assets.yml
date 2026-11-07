@@ -1,0 +1,56 @@
+name: Keep only the requested WogSwitch ZIP
+on:
+  push:
+    branches:
+      - codex/wogswitch-single-zip-delivery
+    paths:
+      - .github/workflows/wogswitch-clean-assets.yml
+permissions:
+  contents: write
+jobs:
+  cleanup-user-requested-attachments:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Preserve verified ZIP and delete the explicit attachment manifest
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: python
+        run: |
+          import json, os, time, urllib.request
+          REPO = "JungKwanRyu/gpt1"
+          RELEASE = 425960140
+          KEEP = {"id":720309237,"name":"WogSwitchProbe-0.1.0.zip","size":27022912,"digest":"sha256:8cb442a1999eeec56c76364f1d52637a45ed5f68174ef32b7e36885193edd067"}
+          REMOVE = [{"id":682812233,"name":"DOWNLOAD-0.7.0.txt","size":977},{"id":682811052,"name":"g3nx-scenario-0.7.0.zip.001","size":5242880},{"id":682811147,"name":"g3nx-scenario-0.7.0.zip.002","size":5242880},{"id":682811203,"name":"g3nx-scenario-0.7.0.zip.003","size":5242880},{"id":682811256,"name":"g3nx-scenario-0.7.0.zip.004","size":5242880},{"id":682811333,"name":"g3nx-scenario-0.7.0.zip.005","size":5242880},{"id":682811410,"name":"g3nx-scenario-0.7.0.zip.006","size":5242880},{"id":682811451,"name":"g3nx-scenario-0.7.0.zip.007","size":5242880},{"id":682811513,"name":"g3nx-scenario-0.7.0.zip.008","size":5242880},{"id":682811578,"name":"g3nx-scenario-0.7.0.zip.009","size":5242880},{"id":682811654,"name":"g3nx-scenario-0.7.0.zip.010","size":5242880},{"id":682811725,"name":"g3nx-scenario-0.7.0.zip.011","size":5242880},{"id":682811821,"name":"g3nx-scenario-0.7.0.zip.012","size":5242880},{"id":682811882,"name":"g3nx-scenario-0.7.0.zip.013","size":5242880},{"id":682811931,"name":"g3nx-scenario-0.7.0.zip.014","size":5242880},{"id":682811988,"name":"g3nx-scenario-0.7.0.zip.015","size":5242880},{"id":682812047,"name":"g3nx-scenario-0.7.0.zip.016","size":5242880},{"id":682812104,"name":"g3nx-scenario-0.7.0.zip.017","size":5242880},{"id":682812152,"name":"g3nx-scenario-0.7.0.zip.018","size":803636},{"id":720301192,"name":"Merge-WogSwitchProbe.cmd","size":581},{"id":682812193,"name":"SHA256SUMS-0.7.0.txt","size":1782},{"id":720298293,"name":"WogSwitchProbe-0.1.0-README.txt","size":866},{"id":720300782,"name":"WogSwitchProbe-0.1.0.zip.001","size":5242880},{"id":720300849,"name":"WogSwitchProbe-0.1.0.zip.002","size":5242880},{"id":720300912,"name":"WogSwitchProbe-0.1.0.zip.003","size":5242880},{"id":720300986,"name":"WogSwitchProbe-0.1.0.zip.004","size":5242880},{"id":720301054,"name":"WogSwitchProbe-0.1.0.zip.005","size":5242880},{"id":720301127,"name":"WogSwitchProbe-0.1.0.zip.006","size":808512}]
+          HEADERS = {"Authorization": "Bearer " + os.environ["GH_TOKEN"], "Accept": "application/vnd.github+json", "User-Agent": "WogSwitch-user-requested-asset-cleanup", "X-GitHub-Api-Version": "2022-11-28"}
+          def api(path, method="GET"):
+              request = urllib.request.Request("https://api.github.com" + path, headers=HEADERS, method=method)
+              with urllib.request.urlopen(request, timeout=90) as response:
+                  if method == "DELETE":
+                      assert response.status == 204
+                      return None
+                  return json.load(response)
+          def verify_keep(release):
+              assert release["id"] == RELEASE and release["draft"] is True
+              asset = next(a for a in release["assets"] if a["id"] == KEEP["id"])
+              for key in ["name", "size", "digest"]:
+                  assert asset[key] == KEEP[key], ("Keep asset changed", key)
+              assert asset["state"] == "uploaded"
+          release = api(f"/repos/{REPO}/releases/{RELEASE}")
+          verify_keep(release)
+          current = {a["id"]: a for a in release["assets"]}
+          # Check the entire deletion manifest before performing any deletion.
+          for target in REMOVE:
+              assert target["id"] != KEEP["id"]
+              assert target["id"] in current, ("Asset missing", target)
+              assert current[target["id"]]["name"] == target["name"]
+              assert current[target["id"]]["size"] == target["size"]
+          for target in REMOVE:
+              api(f"/repos/{REPO}/releases/assets/{target['id']}", method="DELETE")
+              print("Deleted", target["id"], target["name"], flush=True)
+              time.sleep(1)
+          release = api(f"/repos/{REPO}/releases/{RELEASE}")
+          verify_keep(release)
+          assert len(release["assets"]) == 1, "Unexpected remaining assets; inspect manually"
+          print("VERIFIED: only", KEEP["name"], "remains; deleted", len(REMOVE), "attachments.", flush=True)
+          
