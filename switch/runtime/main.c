@@ -1,5 +1,4 @@
-/* WogSwitch checkpoint 0.2: managed Wog methods + EGL graphics/input bridge.
- * This is a compatibility checkpoint, not a game launcher. */
+/* WogSwitch managed host, EGL/input bridge, native Skia and game load checks. */
 #include "core.h"
 #include <EGL/egl.h>
 #include <EGL/eglext.h>
@@ -8,6 +7,11 @@
 #include <stddef.h>
 #include <stdint.h>
 #include <sys/stat.h>
+#include <unistd.h>
+
+#ifndef WOG_CHECKPOINT_VERSION
+#define WOG_CHECKPOINT_VERSION "0.3.0"
+#endif
 
 #define ROOT "sdmc:/switch/WogSwitchProbe"
 #define WOG_HANDLE ((void *)(uintptr_t)0xABC02000)
@@ -336,12 +340,20 @@ int main(int argc, char **argv)
     mkdir(ROOT, 0777);
     report = fopen(ROOT "/probe.log", "w");
     console_ensure_init();
-#if defined(WOG_HAS_SKIA)
+#if defined(WOG_GAME_LOADER)
+    stage("WogSwitch checkpoint %s - game DLL patch/load validation; Main is NOT invoked", WOG_CHECKPOINT_VERSION);
+#elif defined(WOG_HAS_SKIA)
     stage("WogSwitch checkpoint 0.3 - native SkiaSharp image/Korean rendering; NOT a playable game");
 #else
     stage("WogSwitch checkpoint 0.2 - managed methods + EGL/input; NOT a playable game");
 #endif
     if (!report) { stage("FAIL cannot write probe.log"); goto wait; }
+#if defined(WOG_GAME_LOADER)
+    if (chdir("sdmc:/") != 0) { stage("FAIL select SD root for absolute managed paths"); goto wait; }
+    mkdir(ROOT "/tmp", 0777);
+    setenv("TMPDIR", "/switch/WogSwitchProbe/tmp", 1);
+    stage("Managed path root: /switch/WogSwitchProbe on sdmc:/");
+#endif
     if (!application_initialize(ROOT "/probe.ini")) { stage("FAIL runtime configuration"); goto wait; }
     application_configure_mono();
     mono_trace_set_log_handler(runtime_log, NULL);

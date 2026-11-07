@@ -4,6 +4,7 @@ on:
     branches:
       - codex/wogswitch-managed-host
       - codex/wogswitch-skia
+      - codex/wogswitch-game-loader
     paths:
       - switch/managed/**
       - .github/workflows/wogswitch-managed.yml
@@ -58,7 +59,7 @@ jobs:
         run: dotnet output/managed/WogSwitch.Managed.dll --desktop-smoke | tee output/desktop-smoke.log
       - uses: actions/upload-artifact@v4
         with:
-          name: WogSwitch-managed-0.3
+          name: WogSwitch-managed-0.4
           path: |
             output/managed/*.dll
             output/managed/*.json

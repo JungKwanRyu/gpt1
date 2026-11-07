@@ -6,6 +6,8 @@
     <Nullable>enable</Nullable>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="../../switch/managed/GameLoader.cs" Link="GameLoader.cs" />
+    <Compile Include="../../switch/managed/LauncherSettings.cs" Link="LauncherSettings.cs" />
     <Reference Include="WogPatcher"><HintPath>../../switch/managed/lib/WogPatcher.dll</HintPath></Reference>
     <Reference Include="WogShim"><HintPath>../../switch/managed/lib/WogShim.dll</HintPath></Reference>
     <PackageReference Include="Mono.Cecil" Version="0.11.6" />

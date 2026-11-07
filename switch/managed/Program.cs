@@ -17,8 +17,8 @@ internal static class Program
         desktop = args.Contains("--desktop-smoke");
         try
         {
-            Log("Managed checkpoint 0.3: real SkiaSharp image and Korean rendering");
-            string root = desktop ? Path.GetTempPath() : "sdmc:/switch/WogSwitchProbe";
+            Log("Managed checkpoint 0.4: real game DLL patch/load validation and image/Korean rendering");
+            string root = desktop ? Path.GetTempPath() : "/switch/WogSwitchProbe";
             var layout = new GameLayout(Path.Combine(root, "release"), Path.Combine(root, "patched"),
                 Path.Combine(root, "save"), null, Path.Combine(root, "managed/WogShim.dll"));
             Require(layout.SaveDir.EndsWith("save"), "GameLayout constructor and SaveDir getter");
@@ -50,6 +50,27 @@ internal static class Program
                 return 0;
             }
 
+            string[] status;
+            try
+            {
+                var settings = LauncherSettings.Read(root);
+                if (settings.HasAnyGameDll) status = GameLoader.Run(settings, Log);
+                else
+                {
+                    Log("WAIT game DLLs: copy both original PC DLLs into " + settings.ReleaseDir);
+                    string instructions = "Waiting for original PC release DLLs.\nMain invoked: no\nRelease: " + settings.ReleaseDir +
+                        "\nRequired: WarOfGenesis.dll and WarOfGenesis.Assets.dll\nOriginal game folders are optional for this DLL load check.\n";
+                    File.WriteAllText(settings.ReportPath, instructions);
+                    status = new[] { "PC 게임 DLL을 기다리는 중", "release/WarOfGenesis.dll", "release/WarOfGenesis.Assets.dll", "두 파일을 복사한 뒤 다시 실행해 주세요" };
+                }
+            }
+            catch (Exception ex)
+            {
+                Log("FAIL game preparation: " + ex);
+                File.WriteAllText(Path.Combine(root, "load-report.txt"), "Main invoked: no\nFAIL game preparation: " + ex);
+                status = new[] { "게임 DLL 확인 실패", ex.GetType().Name, "자세한 원인: load-report.txt", "이미지·한글 검사는 이어서 진행합니다" };
+            }
+
             Log("Testing native graphics context...");
             if (Native.wog_graphics_start() == 0)
             {
@@ -63,7 +84,7 @@ internal static class Program
                 XInput.Poll = host.ReadPad;
                 string fontFile = Path.Combine(root, "assets/NanumGothic.ttf");
                 Fonts.OverrideFile = fontFile;
-                using var panel = RenderPanel.Create(fontFile, false);
+                using var panel = RenderPanel.Create(fontFile, false, status);
                 RenderPanel.Save(panel, Path.Combine(root, "render.png"));
                 Require(Native.wog_upload_bitmap(panel.GetPixels(), panel.Width, panel.Height, panel.RowBytes) != 0, "GPU bitmap upload");
                 Log("PASS Skia bitmap GPU upload");
@@ -81,7 +102,7 @@ internal static class Program
                     }
                     if (pressed != lastPressed)
                     {
-                        using var updated = RenderPanel.Create(fontFile, pressed);
+                        using var updated = RenderPanel.Create(fontFile, pressed, status);
                         Require(Native.wog_upload_bitmap(updated.GetPixels(), updated.Width, updated.Height, updated.RowBytes) != 0, "Updated bitmap upload");
                         lastPressed = pressed;
                     }

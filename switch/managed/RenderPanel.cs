@@ -8,7 +8,7 @@ internal static class RenderPanel
     internal const string Korean = "창세기전 스위치 포팅";
     internal const string Sample = "한글 이미지 렌더링 테스트";
 
-    internal static SKBitmap Create(string fontFile, bool pressed)
+    internal static SKBitmap Create(string fontFile, bool pressed, string[]? status = null)
     {
         if (!File.Exists(fontFile)) throw new FileNotFoundException("Bundled Korean font missing", fontFile);
         using var face = SKTypeface.FromFile(fontFile) ?? throw new InvalidOperationException("Korean font load failed");
@@ -53,7 +53,16 @@ internal static class RenderPanel
             paint.Color = SKColors.White;
             canvas.DrawText("한글 가나다라마", 380, 366, body, paint);
             canvas.DrawText("이미지와 글꼴이 함께 표시됩니다", 380, 422, small, paint);
-            canvas.DrawText("0.3 — 이미지·한글 확인용", 380, 478, small, paint);
+            canvas.DrawText("0.4 — 게임 DLL 로딩 확인", 380, 478, small, paint);
+            if (status != null)
+            {
+                paint.Color = new SKColor(13, 23, 42);
+                canvas.DrawRect(360, 306, 900, 258, paint);
+                paint.Color = SKColors.White;
+                using var detail = new SKFont(face, 25) { Edging = SKFontEdging.Antialias };
+                for (int i = 0; i < Math.Min(4, status.Length); i++)
+                    canvas.DrawText(status[i], 380, 350 + i * 56, detail, paint);
+            }
             canvas.Flush();
 
             // Reject blank/missing output rather than counting a glyph lookup alone.

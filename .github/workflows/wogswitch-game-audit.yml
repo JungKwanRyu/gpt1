@@ -6,6 +6,8 @@ on:
     paths:
       - tools/game-audit/**
       - tools/fetch_game_fixture.py
+      - switch/managed/GameLoader.cs
+      - switch/managed/LauncherSettings.cs
       - .github/workflows/wogswitch-game-audit.yml
 permissions:
   contents: read
