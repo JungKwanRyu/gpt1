@@ -70,6 +70,15 @@ void* sk_fdmmap(int, size_t*) { return nullptr; }
     if line not in data and replacement not in data:
         raise ValueError('Upstream OS loader source list changed')
     p.write_text(data.replace(line, replacement))
+    # Set this on the actual target: the upstream template does not forward
+    # its set_defaults complete_static_lib value to the nested static target.
+    data = p.read_text()
+    old = 'skiasharp_build("SkiaSharp") {\n'
+    new = old + '  complete_static_lib = true  # WOG_SWITCH_COMPLETE_ARCHIVE\n'
+    if 'WOG_SWITCH_COMPLETE_ARCHIVE' not in data:
+        if old not in data:
+            raise ValueError('Upstream SkiaSharp target changed')
+        p.write_text(data.replace(old, new, 1))
     # Chromium zlib's ARM dispatcher reads Linux auxv/hwcap headers. Use its
     # supported portable implementation on Horizon, rather than claiming Linux.
     p = skia / 'third_party/zlib/BUILD.gn'
@@ -161,6 +170,7 @@ def main():
     if not archive.is_file():
         raise ValueError('Expected the static SkiaSharp archive')
     symbols = subprocess.check_output([compiler / 'aarch64-none-elf-nm', '-g', '--defined-only', archive], text=True)
+    print('Archive bytes:', archive.stat().st_size, flush=True)
     exports = sorted(set(re.findall(r'\b[TW]\s+((?:sk_|gr_|skottie_|sksg_|skresources_)[A-Za-z0-9_]+)\s*$', symbols, re.M)))
     for required in ['sk_version_get_milestone', 'sk_bitmap_new', 'sk_canvas_draw_simple_text',
                      'sk_typeface_create_from_file', 'sk_font_new_with_values', 'sk_pngencoder_encode']:
