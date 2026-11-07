@@ -56,7 +56,8 @@ internal sealed class LauncherSettings
         var comparison = OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal;
         string a = Path.TrimEndingDirectorySeparator(Path.GetFullPath(NormalizeSdPath(parent)));
         string b = Path.TrimEndingDirectorySeparator(Path.GetFullPath(NormalizeSdPath(child)));
-        return a.Equals(b, comparison) || b.StartsWith(a + Path.DirectorySeparatorChar, comparison);
+        string prefix = a.EndsWith(Path.DirectorySeparatorChar) ? a : a + Path.DirectorySeparatorChar;
+        return a.Equals(b, comparison) || b.StartsWith(prefix, comparison);
     }
 
     internal bool HasAnyGameDll => WogPatcher.GamePatcher.GameAssemblies.Any(name => File.Exists(Path.Combine(ReleaseDir, name)));

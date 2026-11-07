@@ -51,6 +51,7 @@ internal static class Program
             }
 
             string[] status;
+            bool gameCheckFailed = false;
             try
             {
                 var settings = LauncherSettings.Read(root);
@@ -66,6 +67,7 @@ internal static class Program
             }
             catch (Exception ex)
             {
+                gameCheckFailed = true;
                 Log("FAIL game preparation: " + ex);
                 File.WriteAllText(Path.Combine(root, "load-report.txt"), "Main invoked: no\nFAIL game preparation: " + ex);
                 status = new[] { "게임 DLL 확인 실패", ex.GetType().Name, "자세한 원인: load-report.txt", "이미지·한글 검사는 이어서 진행합니다" };
@@ -112,7 +114,7 @@ internal static class Program
                 Log("PASS managed graphics/input loop completed");
             }
             finally { Native.wog_graphics_stop(); }
-            return 0;
+            return gameCheckFailed ? 3 : 0;
         }
         catch (Exception ex)
         {

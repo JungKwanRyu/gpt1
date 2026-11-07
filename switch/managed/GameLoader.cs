@@ -31,6 +31,8 @@ internal static class GameLoader
             string file = Path.Combine(settings.ReleaseDir, name);
             if (!File.Exists(file)) throw new FileNotFoundException("Copy the PC release DLL into release/: " + name, file);
             using var assembly = AssemblyDefinition.ReadAssembly(file);
+            if (assembly.Name.Name != Path.GetFileNameWithoutExtension(name))
+                throw new InvalidDataException("DLL filename and assembly identity differ: " + name);
             if (!assembly.MainModule.Attributes.HasFlag(ModuleAttributes.ILOnly) ||
                 assembly.MainModule.Attributes.HasFlag(ModuleAttributes.Required32Bit))
                 throw new InvalidDataException("Expected a portable managed game DLL: " + name);
@@ -109,7 +111,7 @@ internal static class GameLoader
 
     internal static LoadedGame Load(PreparedGame prepared, Action<string> log)
     {
-        var allowed = GamePatcher.GameAssemblies.ToDictionary(Path.GetFileNameWithoutExtension, n => n, StringComparer.Ordinal);
+        var allowed = GamePatcher.GameAssemblies.ToDictionary(n => Path.GetFileNameWithoutExtension(n)!, n => n, StringComparer.Ordinal);
         Assembly? Resolve(AssemblyLoadContext context, AssemblyName name) =>
             name.Name != null && allowed.TryGetValue(name.Name, out string? file)
                 ? context.LoadFromAssemblyPath(Path.Combine(prepared.Directory, file)) : null;

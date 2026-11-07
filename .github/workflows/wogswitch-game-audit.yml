@@ -6,6 +6,7 @@ on:
     paths:
       - tools/game-audit/**
       - tools/fetch_game_fixture.py
+      - tools/prepare_game_files.py
       - switch/managed/GameLoader.cs
       - switch/managed/LauncherSettings.cs
       - .github/workflows/wogswitch-game-audit.yml
@@ -37,8 +38,11 @@ jobs:
               (target / name).write_bytes(data)
       - name: Fetch the pinned public PC release for compatibility testing
         run: python3 tools/fetch_game_fixture.py
+      - name: Test the SD input preparation helper on the real package
+        run: python3 tools/prepare_game_files.py --package work/game-fixture/game.nupkg --destination work/prepared-game/release
       - name: Patch and load the real PC DLLs without entering the game
-        run: dotnet run --project tools/game-audit/GameAudit.csproj -c Release -- work/game-fixture/release output/game-audit | tee game-audit.log
+        shell: bash
+        run: dotnet run --project tools/game-audit/GameAudit.csproj -c Release -- work/prepared-game/release output/game-audit | tee game-audit.log
       - uses: actions/upload-artifact@v4
         if: always()
         with:

@@ -30,6 +30,8 @@ internal static class LoaderSmoke
         string ini = Path.Combine(root, "launcher.ini");
         File.WriteAllText(ini, "release=..\n");
         Reject<InvalidDataException>(() => LauncherSettings.Read(root), "patch output cannot overlap configured input folders");
+        File.WriteAllText(ini, "release=" + Path.GetPathRoot(root) + "\n");
+        Reject<InvalidDataException>(() => LauncherSettings.Read(root), "the filesystem root cannot contain both game inputs and patch output");
         File.WriteAllText(ini, "relese=release\n");
         Reject<InvalidDataException>(() => LauncherSettings.Read(root), "unknown configuration keys are rejected");
         File.WriteAllText(ini, "release=release\nrelease=elsewhere\n");
