@@ -112,7 +112,7 @@ internal static class Program
                         int code;
                         try { code = GameSession.Start(launchSettings, Log, () => host.Frames); }
                         finally { host.EndGame(); }
-                        status = new[] { "게임 시작 시도 종료 — code " + code, "Main 호출 / 출력 프레임 " + host.Frames,
+                        status = new[] { "게임 시작 시도 종료 — code " + code, "게임 호스트 출력 프레임 " + host.Frames,
                             "자세한 결과: game-start.txt", "다시 시도하려면 앱을 재실행해 주세요" };
                         using var resultPanel = RenderPanel.Create(fontFile, false, status);
                         RenderPanel.Save(resultPanel, Path.Combine(root, "render.png"));

@@ -19,12 +19,15 @@ internal static class GameSession
             if (prepared.Missing.Length != 0) throw new NotSupportedException("Game start blocked by unresolved patch items: " + prepared.Missing.Length);
             var loaded = GameLoader.Load(prepared, Record);
             PlatformGameBridge.Configure(settings);
+            bool complete = File.Exists(Path.Combine(settings.GameAssets, "data/TXR/Txr.dat")) && Directory.Exists(Path.Combine(settings.GameAssets, "characters"));
+            bool shipped = Directory.Exists(Path.Combine(settings.ReleaseDir, "assets/characters")) && File.Exists(Path.Combine(settings.ReleaseDir, "assets/originals.txt"));
+            if (!complete && !shipped)
+                throw new DirectoryNotFoundException("Copy the PC release assets folder (including characters and originals.txt) into release/assets before starting.");
             Directory.CreateDirectory(settings.SaveDir);
             Environment.SetEnvironmentVariable("DUELDX_SAVEDIR", settings.SaveDir);
             Environment.SetEnvironmentVariable("WAROFGENESIS_ORIGINAL", settings.Part2Present ? settings.OriginalPart2 : null);
             Environment.SetEnvironmentVariable("WAROFGENESIS_PART1", settings.Part1Present ? settings.OriginalPart1 : null);
             // An incomplete shipped assets directory must go through OriginalAssets.Prepare.
-            bool complete = File.Exists(Path.Combine(settings.GameAssets, "data/TXR/Txr.dat")) && Directory.Exists(Path.Combine(settings.GameAssets, "characters"));
             Environment.SetEnvironmentVariable("WAROFGENESIS_ASSETS", complete ? settings.GameAssets : null);
             AppContext.SetData("APP_CONTEXT_BASE_DIRECTORY", settings.ReleaseDir + Path.DirectorySeparatorChar);
             Record("Main invoked: yes — " + loaded.Main.DeclaringType!.FullName + "." + loaded.Main.Name);

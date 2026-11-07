@@ -5,13 +5,17 @@ internal static class StartupSmoke
 {
     internal static void Run(string fixture, string root, string output, LauncherSettings settings, string patched)
     {
+        var host = new CancelHost(); Host.Use(host); Host.LogSink = Console.WriteLine;
+        int missingAssets = GameSession.Start(settings, Console.WriteLine);
+        if (missingAssets != 1 || host.AskCount != 0 || File.ReadAllText(Path.Combine(root, "game-start.txt")).Contains("Main invoked: yes"))
+            throw new InvalidDataException("Missing shipped assets must prevent Main invocation");
+        Console.WriteLine("PASS missing PC assets block Main invocation with a concrete preparation error");
         string assets = Path.Combine(fixture, "assets");
         foreach (string file in Directory.GetFiles(assets, "*", SearchOption.AllDirectories))
         {
             string to = Path.Combine(settings.ReleaseDir, "assets", Path.GetRelativePath(assets, file));
             Directory.CreateDirectory(Path.GetDirectoryName(to)!); File.Copy(file, to, true);
         }
-        var host = new CancelHost(); Host.Use(host); Host.LogSink = Console.WriteLine;
         PlatformGameBridge.Notice = text => Console.WriteLine("NOTICE " + text);
         foreach (string file in WogPatcher.GamePatcher.GameAssemblies)
         {

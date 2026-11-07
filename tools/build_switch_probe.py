@@ -33,7 +33,7 @@ def main():
     version = '0.3.0' if args.skia else ('0.2.0' if args.managed else '0.1.0')
     if args.checkpoint_version:
         if not args.skia or not args.managed:
-            parser.error('Checkpoint 0.4 requires both managed and native Skia artifacts')
+            parser.error('This checkpoint requires both managed and native Skia artifacts')
         version = args.checkpoint_version
     skia_info = None
     if args.skia:
@@ -139,7 +139,7 @@ def main():
         shutil.copytree(args.skia / 'licenses', app / 'licenses/native-skia')
         shutil.copy2(args.skia / 'build-info.json', app / 'native-skia-build-info.json')
     if version in ['0.4.0', '0.5.0']:
-        shutil.copy2(ROOT / 'switch/launcher.ini', app)
+        shutil.copy2(ROOT / 'switch/launcher.ini', app / ('launcher.ini.example' if version == '0.5.0' else 'launcher.ini'))
     shutil.copy2(sdk / 'runtime/mono/etc/icudt77l.dat', app)
     shutil.copy2(ROOT / 'switch/probe/probe.ini', app)
     romfs = output / 'romfs'
@@ -163,6 +163,7 @@ def main():
                           else 'Mono interpreter and .NET 10 Wog DLL metadata probe; not a game launcher'),
               'version': version,
               'game_execution_supported': False,
+              'optional_game_main_invocation': version == '0.5.0',
               'hardware_tested': False, 'managed_execution_tested': False,
               'compiler': subprocess.check_output([cc, '--version'], text=True).splitlines()[0],
               'nroforge_commit': subprocess.check_output(['git', '-C', forge, 'rev-parse', 'HEAD'], text=True).strip(),
