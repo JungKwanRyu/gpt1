@@ -1,0 +1,47 @@
+name: Audit real PC game patch and load
+on:
+  push:
+    branches:
+      - codex/wogswitch-game-loader
+    paths:
+      - tools/game-audit/**
+      - tools/fetch_game_fixture.py
+      - .github/workflows/wogswitch-game-audit.yml
+permissions:
+  contents: read
+jobs:
+  game-audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+      - name: Restore the verified original Wog DLLs
+        shell: python
+        run: |
+          import hashlib, urllib.request
+          from pathlib import Path
+          root = "https://raw.githubusercontent.com/sonicusers/twgios/573576b96fda40ee88a6a2b384de6d87743b73a7/WogiOS_project/libs/"
+          target = Path("switch/managed/lib")
+          target.mkdir(parents=True, exist_ok=True)
+          for name, expected in [
+              ("WogShim.dll", "c8f9909fd0d78e2d23cfe58e57838c44d590d5c9ddf530d044e614af9bb786aa"),
+              ("WogPatcher.dll", "0ef54f0b771eb28f4678ce1fa4c3bb73afce49cdf29fabc1299448e20a52f5e8")]:
+              with urllib.request.urlopen(root + name, timeout=90) as response:
+                  data = response.read()
+              assert hashlib.sha256(data).hexdigest() == expected
+              (target / name).write_bytes(data)
+      - name: Fetch the pinned public PC release for compatibility testing
+        run: python3 tools/fetch_game_fixture.py
+      - name: Patch and load the real PC DLLs without entering the game
+        run: dotnet run --project tools/game-audit/GameAudit.csproj -c Release -- work/game-fixture/release output/game-audit | tee game-audit.log
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: WogSwitch-real-game-audit
+          path: |
+            game-audit.log
+            output/game-audit/*.json
+            output/game-audit/*.txt
