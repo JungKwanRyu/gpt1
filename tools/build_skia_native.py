@@ -61,6 +61,15 @@ void* sk_fdmmap(int, size_t*) { return nullptr; }
     if old not in data and new not in data:
         raise ValueError('Upstream direct-context wrapper changed')
     p.write_text(data.replace(old, new))
+    # Only optional GPU test tools use SkOSLibrary's dlopen API. They are not
+    # built for this static CPU library; do not compile a nonexistent OS loader.
+    p = skia / 'BUILD.gn'
+    data = p.read_text()
+    line = '      "src/ports/SkOSLibrary_posix.cpp",'
+    replacement = '      # WOG_SWITCH_STATIC_ONLY: no POSIX dynamic loader on Horizon.'
+    if line not in data and replacement not in data:
+        raise ValueError('Upstream OS loader source list changed')
+    p.write_text(data.replace(line, replacement))
 
 
 def main():
@@ -101,7 +110,7 @@ def main():
         'skia_use_system_expat': False, 'skia_use_system_freetype2': False,
         'skia_use_system_libjpeg_turbo': False, 'skia_use_system_libpng': False,
         'skia_use_system_libwebp': False, 'skia_use_system_zlib': False,
-        'extra_cflags': ['-D__SWITCH__', '-DSK_BUILD_FOR_UNIX', '-march=armv8-a+crc+crypto',
+        'extra_cflags': ['-D__SWITCH__', '-DSK_BUILD_FOR_UNIX', '-D_GNU_SOURCE=1', '-march=armv8-a+crc+crypto',
                          '-mtune=cortex-a57', '-mtp=soft'],
     }
     encoded = ' '.join(k + '=' + json.dumps(v) for k, v in gn_args.items())
