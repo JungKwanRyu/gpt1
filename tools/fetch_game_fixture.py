@@ -7,6 +7,7 @@ import hashlib
 import json
 from pathlib import Path
 import urllib.request
+import time
 import zipfile
 
 URL = 'https://github.com/Kyeongrok/the-war-of-genesis-clicker/releases/download/v1.0.86/WarOfGenesis-1.0.86-full.nupkg'
@@ -14,10 +15,19 @@ SHA256 = 'fa8b26aca5d0f6efe79813c653401e236d85af68d98c04129e2e5e303fbac848'
 target = Path('work/game-fixture')
 target.mkdir(parents=True, exist_ok=True)
 package = target / 'game.nupkg'
-with urllib.request.urlopen(URL, timeout=180) as response, package.open('wb') as stream:
-    while block := response.read(1024 * 1024):
-        stream.write(block)
-assert hashlib.sha256(package.read_bytes()).hexdigest() == SHA256
+for attempt in range(3):
+    try:
+        # Avoid retaining a cached gateway timeout for this large public asset.
+        request = urllib.request.Request(URL + '?audit=' + str(time.time_ns()), headers={'User-Agent': 'WogSwitch-compatibility-audit'})
+        with urllib.request.urlopen(request, timeout=90) as response, package.open('wb') as stream:
+            while block := response.read(1024 * 1024):
+                stream.write(block)
+        assert hashlib.sha256(package.read_bytes()).hexdigest() == SHA256
+        break
+    except (OSError, AssertionError) as error:
+        print('Public fixture download attempt', attempt + 1, 'failed:', type(error).__name__, flush=True)
+        if attempt == 2:
+            raise
 release = target / 'release'
 release.mkdir(exist_ok=True)
 with zipfile.ZipFile(package) as archive:
