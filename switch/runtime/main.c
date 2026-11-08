@@ -144,6 +144,10 @@ void wog_graphics_stop(void)
 
 int wog_graphics_start(void)
 {
+    if (!io_has_stdio_redirection()) {
+        stage("FAIL refusing EGL transition without safe native stdio redirection");
+        return 0;
+    }
     stage("Creating EGL context (ES 3, desktop GL 3.3 fallback)...");
     console_dispose();
     /* Do not write to libnx's disposed console while EGL owns the NWindow. */
@@ -406,6 +410,14 @@ int main(int argc, char **argv)
     stage("Managed path root: /switch/WogSwitchProbe on sdmc:/");
 #endif
     if (!application_initialize(ROOT "/probe.ini")) { stage("FAIL runtime configuration"); goto wait; }
+    // System.Native.SysLog uses printf directly, bypassing Mono's log handler
+    // and wog_log's graphics guard. Never leave fd 1/2 on the console device
+    // when console_dispose releases its framebuffer for EGL.
+    if (!io_has_stdio_redirection() && io_stdio_to_file(ROOT "/runtime.log") < 0) {
+        stage("FAIL cannot redirect native stdout/stderr; game startup blocked");
+        goto wait;
+    }
+    stage("PASS native stdout/stderr redirected before graphics; see runtime.log");
     application_configure_mono();
     mono_trace_set_log_handler(runtime_log, NULL);
     mono_dl_fallback_register(bridge_load, bridge_symbol, dlshim_closeLibrary, NULL);

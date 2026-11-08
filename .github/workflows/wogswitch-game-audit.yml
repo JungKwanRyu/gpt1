@@ -10,6 +10,7 @@ on:
       - tools/runtime-compat/**
       - tools/fetch_game_fixture.py
       - tools/prepare_game_files.py
+      - tools/test_runtime_stdio.py
       - switch/managed/**
       - .github/workflows/wogswitch-game-audit.yml
 permissions:
@@ -67,6 +68,9 @@ jobs:
           with open(os.environ['GITHUB_ENV'], 'a') as stream:
               stream.write('WOG_SDK_MONO=' + str(target) + '\n')
           PY
+      - name: Reproduce disposed-console stdio and verify the native file redirect
+        shell: bash
+        run: python3 tools/test_runtime_stdio.py --nroforge work/forge | tee native-stdio-smoke.log
       - name: Build the actual host for Switch BCL API inspection
         run: dotnet publish switch/managed/WogSwitch.Managed.csproj -c Release -o work/managed-api-audit
       - name: Build the Horizon overwrite-rename behavior test
@@ -80,5 +84,6 @@ jobs:
           name: WogSwitch-real-game-audit
           path: |
             game-audit.log
+            native-stdio-smoke.log
             output/game-audit/*.json
             output/game-audit/*.txt

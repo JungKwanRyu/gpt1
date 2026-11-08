@@ -24,7 +24,14 @@ internal static class StartupSmoke
                 throw new InvalidDataException("An unhandled game P/Invoke remains: " + file);
         }
         Console.WriteLine("PASS no direct native imports remain in the two patched game DLLs");
-        int code = GameSession.Start(settings, Console.WriteLine);
+        bool journalObservedBeforeMain = false;
+        int code = GameSession.Start(settings, line => {
+            if (line.StartsWith("Main invoked: yes"))
+                journalObservedBeforeMain = File.ReadAllText(Path.Combine(root, "game-start.txt")).Contains(line);
+            Console.WriteLine(line);
+        });
+        if (!journalObservedBeforeMain) throw new InvalidDataException("Main marker was not written before invoking native logging/game code");
+        Console.WriteLine("PASS game-start journal persisted before Main invocation and before logging callbacks");
         if (code != 0 || host.AskCount == 0 || host.GraphicsCalls != 0)
             throw new InvalidDataException("Actual Main should reach the original-folder prompt and return after cancel: code=" + code + ", asks=" + host.AskCount + ", graphics=" + host.GraphicsCalls);
         string report = File.ReadAllText(Path.Combine(root, "game-start.txt"));
