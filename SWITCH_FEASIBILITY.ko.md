@@ -192,3 +192,25 @@ PCM 출력은 아직 연결하지 않았다. 원본 자료를 사용한 타이�
 관리 코드 CI: https://github.com/JungKwanRyu/gpt1/actions/runs/42406056725
 실제 Main 검사 CI: https://github.com/JungKwanRyu/gpt1/actions/runs/42406056693
 실행 안내: `switch/CHECKPOINT-0.5.ko.md`.
+
+## 0.5 사용자 실패 로그와 0.5.1 수정 — 2026-11-08
+
+수신 로그 `switch/reports/probe-user-0.5-2026-11-08.log`에서 기본 Wog 호출과
+Mono.Cecil 읽기는 성공했으나, 이후 예외 출력 중 System.SR의 NullReferenceException이
+발생해 최초 예외가 가려졌다. 그래픽 초기화 단계에는 도달하지 못했다.
+
+실제 SDK9 BCL을 복원해 메서드 참조를 검사한 결과, 설정 파서의 .NET 10 전용
+ReadOnlySpan/comparer Contains와 로더·WogPatcher의 배열 Reverse 호출이 존재하지 않았다.
+명시적 IEnumerable 호출과 빌드 시 WogPatcher의 호출 한 개 호환 처리를 적용했다.
+원본 공개 WogPatcher는 먼저 SHA-256을 검증하고, 변경 후 해시와 차이를 JSON에 남긴다.
+WogShim과 사용자가 넣는 PC 게임 DLL 입력은 수정하지 않는다.
+
+예외 출력은 ToString 없이 타입·HResult·메시지·스택·내부 예외를 각각 기록하도록
+바꿨고, 오류 출력 자체가 실패해도 내부 원인이 남는 회귀 검사를 추가했다.
+0.5.1의 실행기·WogShim·호환 WogPatcher·패치된 게임 DLL 두 개는 SDK9 미해결
+메서드 참조 0개로 검사됐다. 실제 Main의 원본 폴더 안내·취소 복귀 검사도 통과했다.
+수정판의 실기 재확인은 아직 필요하며 PCM 출력·플레이 검증 범위는 이전과 같다.
+
+관리 코드 CI: https://github.com/JungKwanRyu/gpt1/actions/runs/42429348671
+SDK9 및 게임 검사 CI: https://github.com/JungKwanRyu/gpt1/actions/runs/42429348675
+설치 안내: `switch/CHECKPOINT-0.5.1.ko.md`.

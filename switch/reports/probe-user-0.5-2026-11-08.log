@@ -1,0 +1,15 @@
+WogSwitch checkpoint 0.5.0 - platform patches and optional real game startup
+Managed path root: /switch/WogSwitchProbe on sdmc:/
+Starting Mono interpreter and managed checkpoint...
+Managed checkpoint 0.5: platform patches and optional actual game startup
+PASS WogPatcher method execution: GameLayout constructor/getter/clone/equality
+PASS WogShim method execution: Host.Use and Host.Current
+PASS Mono.Cecil 0.11.6: original WogShim DLL parsed
+FAIL managed checkpoint: System.NullReferenceException: Object reference not set to an instance of an object.
+   at System.SR.InternalGetResourceString(String key)
+   at System.SR.GetResourceString(String resourceKey)
+   at System.SR.get_Exception_EndOfInnerExceptionStack()
+   at System.Exception.ToString()
+   at WogSwitch.Program.Main(String[] args)
+Managed checkpoint exit code: 1
+Press PLUS to exit. Results: switch/WogSwitchProbe/probe.log

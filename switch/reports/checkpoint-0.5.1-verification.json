@@ -1,0 +1,27 @@
+{
+  "version": "0.5.1",
+  "source_commit": "938e151b44ab2e8c5d4a0b8b7db8989628cb1181",
+  "managed_ci_run": 42429348671,
+  "real_game_runtime_audit_ci_run": 42429348675,
+  "tested_pc_version": "1.0.86.0",
+  "sdk9_method_reference_unresolved": {
+    "sdk9-patcher-unresolved-methods.txt": 0,
+    "sdk9-WarOfGenesis-unresolved-methods.txt": 0,
+    "sdk9-shim-unresolved-methods.txt": 0,
+    "sdk9-managed-host-unresolved-methods.txt": 0,
+    "sdk9-WarOfGenesis.Assets-unresolved-methods.txt": 0
+  },
+  "broken_exception_formatter_regression": true,
+  "managed_contains_comparer_adapted": true,
+  "managed_array_reverse_adapted": true,
+  "vendor_patcher_array_reverse_adapted": true,
+  "vendor_patcher_adapted_sha256": "806400b83345fb1aa2289dff206f6b7e80743deb70521c06b18aa7f522b83ddc",
+  "skia_imports": 877,
+  "bridge_imports": 15,
+  "post_platform_patcher_missing": 0,
+  "desktop_actual_main_original_folder_cancel": true,
+  "switch_nro_build": true,
+  "switch_hardware_tested": false,
+  "gameplay_verified": false,
+  "audio_output_available": false
+}

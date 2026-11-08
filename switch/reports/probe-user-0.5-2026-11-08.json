@@ -1,0 +1,21 @@
+{
+  "received_date": "2026-11-08",
+  "version": "0.5.0",
+  "hardware_tested": true,
+  "hardware_pass": false,
+  "probe_sha256": "1daadfd58038030286f39e0710a9658161246bd8a42dd9ec0c7bad23c635f504",
+  "last_pass": "Mono.Cecil original WogShim DLL read",
+  "observed_error": "System.NullReferenceException in System.SR.InternalGetResourceString while Exception.ToString formats a nested exception",
+  "graphics_started": false,
+  "original_exception_masked": true,
+  "verified_sdk9_incompatibilities": [
+    "LauncherSettings.Read calls System.MemoryExtensions.Contains<T>(ReadOnlySpan<T>, T, IEqualityComparer<T>), missing from Switch BCL9",
+    "GameLoader.Load and original GameLauncher.Run call Enumerable.Reverse<T>(T[]), missing from Switch BCL9"
+  ],
+  "fixes": [
+    "explicit classic IEnumerable LINQ overloads",
+    "build-time adaptation of the public hash-pinned WogPatcher DLL",
+    "exception chain printer independent of Exception.ToString",
+    "runtime resource-key switch and stage breadcrumbs"
+  ]
+}
