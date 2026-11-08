@@ -22,9 +22,9 @@ jobs:
           
           REPO = "JungKwanRyu/gpt1"
           RELEASE = 425960140
-          NAME = "WogSwitchProbe-0.5.2.zip"
-          EXPECTED = "1d57b1df39dd5176ee9467fd8fc61e5ada8eb1dbd2d95f74644ed517a9262a70"
-          PARTS = [{"id":723641572,"name":"WogSwitchProbe-0.5.2.transfer.001","size":5242880,"digest":"sha256:a03dbafac85f18de02c5eddba092a002e6a9bc369c286df86800c1a0c895bcd7"},{"id":723641670,"name":"WogSwitchProbe-0.5.2.transfer.002","size":5242880,"digest":"sha256:d76e95d98ff59c5ed02fe71d090339b75e1bd142e2294b026a698093f8ade7aa"},{"id":723641717,"name":"WogSwitchProbe-0.5.2.transfer.003","size":5242880,"digest":"sha256:b326428358c942f184e3fbeb59da04b6f00bf51355f3005b20a052867ac3d82f"},{"id":723641771,"name":"WogSwitchProbe-0.5.2.transfer.004","size":5242880,"digest":"sha256:c154ae0c6ca51c742c04f11c11aad50f1c670bfe230be76d1d25dab2b5600273"},{"id":723641812,"name":"WogSwitchProbe-0.5.2.transfer.005","size":5242880,"digest":"sha256:fe6ce17e02c089dfefe51b7d8d0ddfae8b522a917d5573ee9a54c52fa4ba9f61"},{"id":723641853,"name":"WogSwitchProbe-0.5.2.transfer.006","size":5242880,"digest":"sha256:8f56d216dd9d90d7fe6e9a2fd44d5120b5270df4d9b4a9f3bbcdeb02c710d7b2"},{"id":723641925,"name":"WogSwitchProbe-0.5.2.transfer.007","size":5242880,"digest":"sha256:d15a4f25d211ae7f904a1c3d7665e2d5ba5982cc62ee4b0a9946dc0c67e6f149"},{"id":723641961,"name":"WogSwitchProbe-0.5.2.transfer.008","size":832141,"digest":"sha256:a3bcf97672074816970b853f819a03f3b461bce86b23a45dc9ecd5c428f7dc2a"}]
+          NAME = "WogSwitchProbe-0.5.3.zip"
+          EXPECTED = "ff3aae7dc96f45ab78de5d01f2831d10c42d79960bc21b0b2d4894ca4099cea0"
+          PARTS = [{"id":723771775,"name":"WogSwitchProbe-0.5.3.transfer.001","size":5242880,"digest":"sha256:a73e078051d91e3a815f07a3b452370681667700e0c4cfd325d83d462be43e8e"},{"id":723771825,"name":"WogSwitchProbe-0.5.3.transfer.002","size":5242880,"digest":"sha256:420a225a486cc672c05161c96d8a4704da5d64377ee8dfdcffdd1e7e85a6d1e3"},{"id":723771910,"name":"WogSwitchProbe-0.5.3.transfer.003","size":5242880,"digest":"sha256:92b917c7fd288eeeecf05831d409d18558ddb5e5293e5752d2bb7888c850596f"},{"id":723771996,"name":"WogSwitchProbe-0.5.3.transfer.004","size":5242880,"digest":"sha256:d0256dbfae5c02a3a26a4c2419c4130dbf7e8a28cde368131780c219d7690b1f"},{"id":723772062,"name":"WogSwitchProbe-0.5.3.transfer.005","size":5242880,"digest":"sha256:a31371ce92287a7591dfaeb73f4dc452d31d122a883ce863a5476b2d3d316c81"},{"id":723772142,"name":"WogSwitchProbe-0.5.3.transfer.006","size":5242880,"digest":"sha256:ae19dce8a1310d0925a05e2d91f682242c1b5704df5aecdf65f0c42ee6ecbbbf"},{"id":723772192,"name":"WogSwitchProbe-0.5.3.transfer.007","size":5242880,"digest":"sha256:0daef53a9a5812e2bfe075b7c3a3c8a2bf0977d4611cfe0221c2cac326ed3502"},{"id":723772227,"name":"WogSwitchProbe-0.5.3.transfer.008","size":837625,"digest":"sha256:5f72ce8d04b8af38b729bf4b8d3b45677087debe79d9119ef200fdb3012cc3b3"}]
           HEADERS = {"Authorization": "Bearer " + os.environ["GH_TOKEN"], "User-Agent": "WogSwitch-single-zip", "X-GitHub-Api-Version": "2022-11-28"}
           
           def api(path):
@@ -60,7 +60,7 @@ jobs:
                   stream.write(data)
                   print("Verified part", part["name"])
           data = output.read_bytes()
-          assert len(data) == 37532301
+          assert len(data) == 37537785
           assert hashlib.sha256(data).hexdigest() == EXPECTED
           with zipfile.ZipFile(output) as archive:
               assert archive.testzip() is None
