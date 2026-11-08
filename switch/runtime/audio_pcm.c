@@ -21,7 +21,7 @@ int wog_pcm_write(WogPcm *s, const uint8_t *bytes, size_t count, WogPcmEmit emit
     if (!s || !s->input_rate || !emit || (!bytes && count) || count % (s->channels * (s->bits / 8))) return 0;
     size_t sample_bytes = s->bits / 8, frame_bytes = s->channels * sample_bytes;
     for (size_t offset = 0; offset < count; offset += frame_bytes) {
-        int16_t current[2];
+        int16_t current[2] = { 0, 0 };
         for (uint32_t ch = 0; ch < s->channels; ch++) {
             size_t p = offset + ch * sample_bytes;
             current[ch] = s->bits == 8 ? (int16_t)(((int)bytes[p] - 128) * 256) : (int16_t)((uint16_t)bytes[p] | (uint16_t)bytes[p + 1] << 8);
