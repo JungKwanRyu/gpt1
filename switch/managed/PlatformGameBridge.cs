@@ -8,6 +8,7 @@ public static class PlatformGameBridge
     private static LauncherSettings? settings;
     private static readonly object reportGate = new();
     private static readonly HashSet<string> assetIoErrors = new(StringComparer.OrdinalIgnoreCase);
+    private static readonly HashSet<string> unavailableAssets = new(StringComparer.OrdinalIgnoreCase);
     internal static Exception? ReportedCrash { get; private set; }
     internal static Action<string>? Notice;
     internal static void Configure(LauncherSettings value) { settings = value; ReportedCrash = null; }
@@ -17,6 +18,7 @@ public static class PlatformGameBridge
         lock (reportGate)
         {
             assetIoErrors.Clear();
+            unavailableAssets.Clear();
             File.WriteAllText(Path.Combine(settings!.Root, "asset-report.txt"),
                 "Original asset diagnostics for this game session\nNOT_FOUND_OR_UNMAPPED = extraction returned false without an IO exception\nIO_ERROR = read or write raised an IO/access exception\n");
         }
@@ -59,7 +61,7 @@ public static class PlatformGameBridge
         {
             lock (reportGate)
             {
-                if (settings == null) return;
+                if (settings == null || !unavailableAssets.Add(asset)) return;
                 string kind = assetIoErrors.Contains(asset) ? "UNAVAILABLE_AFTER_IO_ERROR" : "NOT_FOUND_OR_UNMAPPED";
                 File.AppendAllText(Path.Combine(settings.Root, "asset-report.txt"), kind + " " + asset + " -> " + destination + "\n");
             }
