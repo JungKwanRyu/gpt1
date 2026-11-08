@@ -126,6 +126,9 @@ int main(int argc, char **argv) {
     code = (Path(__file__).resolve().parents[1] / "switch/runtime/main.c").read_text()
     assert code.index('io_stdio_to_file(ROOT "/runtime.log")') < code.index('mono_jit_init("wog-switch-managed")')
     assert "refusing EGL transition without safe native stdio redirection" in code
+    assert code.index('setenv("HOME", "/switch/WogSwitchProbe/home", 1)') < code.index('mono_jit_init("wog-switch-managed")')
+    for variable in ["XDG_CONFIG_HOME", "XDG_CACHE_HOME", "XDG_DATA_HOME"]:
+        assert 'setenv("' + variable + '"' in code
     print("PASS native runtime routes stdio before Mono starts and rejects an unsafe EGL transition")
 
 

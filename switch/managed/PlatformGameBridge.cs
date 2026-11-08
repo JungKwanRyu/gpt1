@@ -16,9 +16,12 @@ public static class PlatformGameBridge
     public static string GetFolderPath(Environment.SpecialFolder folder) => folder switch
     {
         Environment.SpecialFolder.ApplicationData or Environment.SpecialFolder.LocalApplicationData or
-        Environment.SpecialFolder.MyDocuments => settings?.SaveDir ?? throw new InvalidOperationException("Game paths not configured"),
-        Environment.SpecialFolder.UserProfile => settings?.Root ?? throw new InvalidOperationException("Game paths not configured"),
-        _ => Environment.GetFolderPath(folder),
+        Environment.SpecialFolder.MyDocuments or Environment.SpecialFolder.CommonApplicationData => settings?.SaveDir ?? throw new InvalidOperationException("Game paths not configured"),
+        Environment.SpecialFolder.UserProfile => settings?.HomeDir ?? throw new InvalidOperationException("Game paths not configured"),
+        Environment.SpecialFolder.Fonts => Path.Combine(settings?.Root ?? throw new InvalidOperationException("Game paths not configured"), "assets"),
+        // A missing desktop/Windows special folder is represented by an empty
+        // path. Never invoke the SDK's unsupported passwd/home lookup fallback.
+        _ => string.Empty,
     };
 
     public static string? ScanPart2() => settings?.Part2Present == true ? settings.OriginalPart2 : null;

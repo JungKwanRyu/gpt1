@@ -48,6 +48,9 @@ internal static class RuntimeApiAudit
                             bool allowed = input.Name == "managed-host" && type.FullName == "WogSwitch.PortableFiles" && method.Name == "RenameToAbsent" && file.Name == "Move";
                             if (!allowed) problems.Add("Unsupported file operation: " + method.FullName + " -> " + file.FullName);
                         }
+                        if (owned && instruction.Operand is MethodReference folder && folder.Name == "GetFolderPath" &&
+                            folder.DeclaringType.FullName is "System.Environment" or "WogShim.BclRedirects")
+                            problems.Add("Unmapped OS special-folder lookup: " + method.FullName + " -> " + folder.FullName);
                         if (instruction.Operand is MethodReference bridge && bridge.DeclaringType.FullName == "WogSwitch.PlatformGameBridge" && bridge.Name is "CopyFile" or "MoveFile") routed++;
                         if (instruction.Operand is not MethodReference reference || reference.DeclaringType.Scope is not AssemblyNameReference scope || !scope.Name.StartsWith("System.")) continue;
                         try { if (reference.Resolve() == null) problems.Add(method.FullName + " -> " + reference.FullName); }

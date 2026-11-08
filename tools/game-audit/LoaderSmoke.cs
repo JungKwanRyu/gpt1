@@ -38,6 +38,14 @@ internal static class LoaderSmoke
         Reject<InvalidDataException>(() => LauncherSettings.Read(root), "duplicate configuration keys are rejected");
         File.WriteAllText(ini, "[game]\nrelease=release\noriginal=original/part2\npart1=original/part1\nassets=release/assets\n");
         settings = LauncherSettings.Read(root);
+        PlatformGameBridge.Configure(settings);
+        foreach (var folder in Enum.GetValues<Environment.SpecialFolder>())
+        {
+            string mapped = PlatformGameBridge.GetFolderPath(folder);
+            Require(mapped.Length == 0 || LauncherSettings.Contains(settings.Root, mapped), "special folder stays inside the app or is unavailable: " + folder);
+        }
+        Require(PlatformGameBridge.GetFolderPath(Environment.SpecialFolder.UserProfile) == settings.HomeDir, "user profile maps to the app home without an OS passwd lookup");
+        Require(PlatformGameBridge.GetFolderPath(Environment.SpecialFolder.ApplicationData) == settings.SaveDir, "game application data maps to the configured save folder");
         foreach (string file in GamePatcher.GameAssemblies) PortableFiles.Copy(Path.Combine(fixture, file), Path.Combine(release, file), true);
         var originalHashes = GamePatcher.GameAssemblies.ToDictionary(n => n, n => GameLoader.Digest(Path.Combine(release, n)));
         var first = GameLoader.Prepare(settings, Console.WriteLine);

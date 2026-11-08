@@ -5,7 +5,7 @@ namespace WogSwitch;
 
 internal static class PlatformPatches
 {
-    internal const string Version = "switch-platform-0.5.3-v1";
+    internal const string Version = "switch-platform-0.5.5-v1";
 
     internal static void Apply(string directory, Action<string> log)
     {
@@ -135,7 +135,8 @@ internal static class PlatformPatches
                     var parameters = fileCall.Parameters.Count == 2 ? new[] { typeof(string), typeof(string) } : new[] { typeof(string), typeof(string), typeof(bool) };
                     instruction.Operand = module.ImportReference(typeof(PlatformGameBridge).GetMethod(fileCall.Name == "Copy" ? "CopyFile" : "MoveFile", parameters)!);
                 }
-                if (instruction.OpCode != OpCodes.Call || instruction.Operand is not MethodReference reference || reference.DeclaringType.FullName != "System.Environment") continue;
+                if (instruction.OpCode != OpCodes.Call || instruction.Operand is not MethodReference reference ||
+                    reference.DeclaringType.FullName is not ("System.Environment" or "WogShim.BclRedirects")) continue;
                 if (reference.Name == "Exit" && reference.Parameters.Count == 1 && reference.Parameters[0].ParameterType.FullName == "System.Int32")
                     instruction.Operand = Import(module, nameof(PlatformGameBridge.Exit));
                 else if (reference.Name == "GetFolderPath" && reference.Parameters.Count == 1)

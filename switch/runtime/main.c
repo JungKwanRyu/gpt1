@@ -429,6 +429,17 @@ int main(int argc, char **argv)
     if (chdir("sdmc:/") != 0) { stage("FAIL select SD root for absolute managed paths"); goto wait; }
     mkdir(ROOT "/tmp", 0777);
     setenv("TMPDIR", "/switch/WogSwitchProbe/tmp", 1);
+    // The Unix BCL otherwise calls getpwuid_r, which Horizon does not provide.
+    // These are the application's runtime paths, not the build machine's HOME.
+    mkdir(ROOT "/home", 0777);
+    mkdir(ROOT "/home/.config", 0777);
+    mkdir(ROOT "/home/.cache", 0777);
+    mkdir(ROOT "/home/.local", 0777);
+    mkdir(ROOT "/home/.local/share", 0777);
+    setenv("HOME", "/switch/WogSwitchProbe/home", 1);
+    setenv("XDG_CONFIG_HOME", "/switch/WogSwitchProbe/home/.config", 1);
+    setenv("XDG_CACHE_HOME", "/switch/WogSwitchProbe/home/.cache", 1);
+    setenv("XDG_DATA_HOME", "/switch/WogSwitchProbe/home/.local/share", 1);
     stage("Managed path root: /switch/WogSwitchProbe on sdmc:/");
 #endif
     if (!application_initialize(ROOT "/probe.ini")) { stage("FAIL runtime configuration"); goto wait; }

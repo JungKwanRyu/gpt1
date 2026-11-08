@@ -11,6 +11,7 @@ internal sealed class LauncherSettings
     internal string ReportPath => Path.Combine(Root, "load-report.txt");
     internal string ShimPath => Path.Combine(Root, "managed", "WogShim.dll");
     internal string SaveDir => Path.Combine(Root, "save");
+    internal string HomeDir => Path.Combine(Root, "home");
 
     private LauncherSettings(string root, Dictionary<string, string> values)
     {
