@@ -11,6 +11,7 @@ namespace WogSwitch;
 internal static class Program
 {
     private static bool desktop;
+    private static readonly System.Diagnostics.Stopwatch patchClock = System.Diagnostics.Stopwatch.StartNew();
 
     public static int Main(string[] args)
     {
@@ -20,7 +21,7 @@ internal static class Program
             // This supported runtime switch avoids resource-manager lookups
             // when the embedded runtime formats its own error messages.
             AppContext.SetSwitch("System.Resources.UseSystemResourceKeys", true);
-            Log("Managed checkpoint 0.5.4: safe native logging and persistent startup journal");
+            Log("Managed checkpoint 0.5.5: visible patch phases and current-run load journal");
             string root = desktop ? Path.GetTempPath() : "/switch/WogSwitchProbe";
             var layout = new GameLayout(Path.Combine(root, "release"), Path.Combine(root, "patched"),
                 Path.Combine(root, "save"), null, Path.Combine(root, "managed/WogShim.dll"));
@@ -164,6 +165,7 @@ internal static class Program
 
     internal static void Log(string line)
     {
+        if (line.StartsWith("PATCH ", StringComparison.Ordinal)) line += " [elapsed " + (long)patchClock.Elapsed.TotalSeconds + "s]";
         if (desktop) Console.WriteLine(line);
         else Native.wog_log(line);
     }

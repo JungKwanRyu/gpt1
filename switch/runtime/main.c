@@ -8,6 +8,8 @@
 #include <stdint.h>
 #include <sys/stat.h>
 #include <unistd.h>
+#include <reent.h>
+#include <sys/iosupport.h>
 
 #ifndef WOG_CHECKPOINT_VERSION
 #define WOG_CHECKPOINT_VERSION "0.3.0"
@@ -22,6 +24,9 @@ extern void *wog_skia_symbol(const char *name);
 static FILE *report;
 static PadState pad;
 static bool graphics_active, stop_requested;
+static const devoptab_t *text_console_device;
+static Thread *text_console_owner;
+static bool text_console_live;
 static EGLDisplay display = EGL_NO_DISPLAY;
 static EGLSurface surface = EGL_NO_SURFACE;
 static EGLContext context = EGL_NO_CONTEXT;
@@ -65,7 +70,17 @@ void wog_log(const char *text)
     const char *line = text ? text : "(null)";
     if (report) { fprintf(report, "%s\n", line); fflush(report); }
     svcOutputDebugString(line, strlen(line));
-    if (!graphics_active) { printf("%s\n", line); console_update(); }
+    if (!graphics_active) {
+        // stdout stays on the safe file sink. Mirror only our main-thread
+        // progress directly to the live text renderer, never via printf.
+        if (threadGetSelf() == text_console_owner && text_console_device &&
+            text_console_live && text_console_device->write_r) {
+            text_console_device->write_r(_REENT, NULL, line, strlen(line));
+            text_console_device->write_r(_REENT, NULL, "\n", 1);
+            consoleUpdate(NULL);
+        }
+        if (io_has_stdio_redirection()) printf("%s\n", line);
+    }
 }
 
 static void stage(const char *format, ...)
@@ -138,8 +153,11 @@ void wog_graphics_stop(void)
     context = EGL_NO_CONTEXT;
     surface = EGL_NO_SURFACE;
     display = EGL_NO_DISPLAY;
+    // EGL has released the window. Restoring the text renderer does not
+    // change stdout/stderr after libnx's first consoleInit call.
+    PrintConsole *restored_console = consoleInit(NULL);
+    text_console_live = restored_console && restored_console->consoleInitialised;
     graphics_active = false;
-    console_ensure_init();
 }
 
 int wog_graphics_start(void)
@@ -149,9 +167,10 @@ int wog_graphics_start(void)
         return 0;
     }
     stage("Creating EGL context (ES 3, desktop GL 3.3 fallback)...");
-    console_dispose();
     /* Do not write to libnx's disposed console while EGL owns the NWindow. */
     graphics_active = true;
+    text_console_live = false;
+    console_dispose();
     nwindowSetDimensions(nwindowGetDefault(), width, height);
     display = eglGetDisplay(EGL_DEFAULT_DISPLAY);
     EGLint major = 0, minor = 0;
@@ -395,6 +414,9 @@ int main(int argc, char **argv)
     mkdir(ROOT, 0777);
     report = fopen(ROOT "/probe.log", "w");
     console_ensure_init();
+    text_console_device = devoptab_list[STD_OUT];
+    text_console_owner = threadGetSelf();
+    text_console_live = true;
 #if defined(WOG_GAME_LOADER)
     stage("WogSwitch checkpoint %s - platform patches and optional real game startup", WOG_CHECKPOINT_VERSION);
 #elif defined(WOG_HAS_SKIA)
@@ -441,9 +463,10 @@ wait:
     while (appletMainLoop()) {
         padUpdate(&pad);
         if (padGetButtons(&pad) & HidNpadButton_Plus) break;
-        console_update();
+        if (text_console_live) consoleUpdate(NULL);
     }
     if (report) fclose(report);
+    if (text_console_live) { consoleExit(NULL); text_console_live = false; }
     console_dispose();
     return 0;
 }

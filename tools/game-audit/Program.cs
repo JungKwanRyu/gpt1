@@ -7,6 +7,8 @@ using WogPatcher;
 if (args.Length != 2) throw new ArgumentException("Usage: GameAudit release-directory report-directory");
 string release = Path.GetFullPath(args[0]), output = Path.GetFullPath(args[1]);
 Directory.CreateDirectory(output);
+var patchPhases = new List<string>();
+WogShim.Host.LogSink = line => { if (line.StartsWith("PATCH ")) patchPhases.Add(line); Console.WriteLine(line); };
 RenameSemanticsSmoke.Run(output);
 PortableFilesSmoke.Run(output);
 RuntimeApiAudit.Run(output);
@@ -34,6 +36,11 @@ Console.WriteLine("Release DLLs: " + string.Join(", ", Directory.GetFiles(releas
 try
 {
     LoaderSmoke.Run(release, output);
+    foreach (string phase in new[] { "Retarget", "RedirectCalls", "RewritePInvokes", "Verify" })
+        foreach (string assembly in GamePatcher.GameAssemblies)
+            if (!patchPhases.Any(p => p == "PATCH " + phase + ": " + assembly))
+                throw new InvalidDataException("Missing real game patch progress: " + phase + " / " + assembly);
+    Console.WriteLine("PASS actual patch progress callbacks cover four phases of both game DLLs");
 }
 catch (Exception ex)
 {

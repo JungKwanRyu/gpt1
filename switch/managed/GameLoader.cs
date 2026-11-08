@@ -170,16 +170,18 @@ internal static class GameLoader
 
     internal static string[] Run(LauncherSettings settings, Action<string> log)
     {
-        var report = new List<string> { "WogSwitch 0.5 game DLL patch/load check", "Main invoked: no",
+        var report = new List<string> { "WogSwitch 0.5.5 game DLL patch/load check", "Load check status: in progress", "Main invoked: no",
             "PC release: " + settings.ReleaseDir, "Part 2 folder detected: " + settings.Part2Present,
             "Part 1 folder detected: " + settings.Part1Present, "Game assets/characters detected: " +
                 System.IO.Directory.Exists(Path.Combine(settings.GameAssets, "characters")) };
-        void Record(string line) { report.Add(line); log(line); }
+        File.WriteAllLines(settings.ReportPath, report);
+        void Record(string line) { report.Add(line); File.AppendAllText(settings.ReportPath, line + "\n"); log(line); }
         try
         {
             foreach (string line in report.ToArray()) log(line);
             var prepared = Prepare(settings, Record);
             var loaded = Load(prepared, Record);
+            report[1] = "Load check status: complete";
             report.Add("Patch output: " + prepared.Directory);
             report.Add("Compatibility report follows:");
             report.AddRange(prepared.Missing);
@@ -188,6 +190,7 @@ internal static class GameLoader
         }
         catch (Exception ex)
         {
+            report[1] = "Load check status: failed";
             Record("FAIL game load check:\n" + Diagnostics.Describe(ex));
             throw;
         }

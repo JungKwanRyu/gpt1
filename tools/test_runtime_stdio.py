@@ -27,6 +27,7 @@ def main():
     source = (args.nroforge / "runner/shared/io_util.c").read_text()
     bodies = "\n".join(function(source, name) for name in [
         "io_has_stdio_redirection", "file_log_write", "redirect_newlib_io", "io_stdio_to_file"])
+    native = (Path(__file__).resolve().parents[1] / "switch/runtime/main.c").read_text()
     harness = r'''
 #include <stdbool.h>
 #include <stdio.h>
@@ -47,16 +48,52 @@ static bool isCustomRedirect;
 static FILE *file_log_handle;
 static int nxlink_log_socket = -1;
 static volatile char *console_framebuffer;
+static int console_writes;
 static ssize_t console_write(struct _reent *r, void *fd, const char *p, size_t n) {
     (void)r; (void)fd; (void)p;
+    console_writes++;
     *console_framebuffer = 'x'; /* Same freed/null framebuffer failure boundary. */
     return n;
 }
 '''
     harness += bodies + r'''
+#define _REENT NULL
+typedef int Thread;
+static Thread main_thread, other_thread;
+static Thread *current_thread = &main_thread;
+static Thread *threadGetSelf(void) { return current_thread; }
+static const devoptab_t *text_console_device;
+static Thread *text_console_owner;
+static bool text_console_live, graphics_active;
+static FILE *report;
+static int console_updates;
+static void consoleUpdate(void *unused) { (void)unused; console_updates++; }
+static void svcOutputDebugString(const char *p, size_t n) { (void)p; (void)n; }
+'''
+    harness += function(native, "wog_log") + r'''
 int main(int argc, char **argv) {
     devoptab_t console = { "console", console_write };
     devoptab_list[STD_OUT] = devoptab_list[STD_ERR] = &console;
+    if (argc == 3) {
+        char framebuffer;
+        console_framebuffer = &framebuffer;
+        text_console_device = &console;
+        text_console_owner = &main_thread;
+        text_console_live = true;
+        wog_log("PATCH Retarget visible");
+        if (console_writes != 2 || console_updates != 1) return 5;
+        graphics_active = true;
+        text_console_live = false;
+        console_framebuffer = NULL;
+        wog_log("must not draw after EGL transition");
+        graphics_active = false;
+        wog_log("must not draw on disposed renderer");
+        text_console_live = true;
+        current_thread = &other_thread;
+        wog_log("background logging must not draw");
+        if (console_writes != 2 || console_updates != 1) return 6;
+        return 0;
+    }
     if (argc == 2) {
         if (io_stdio_to_file(argv[1]) < 0 || !io_has_stdio_redirection()) return 2;
     }
@@ -84,6 +121,8 @@ int main(int argc, char **argv) {
         subprocess.run([str(root / "test"), str(log)], check=True)
         assert log.read_text().count("SYSLOG AFTER CONSOLE EXIT") == 2
         print("PASS actual SDK stdio callback captures stdout/stderr after console exit, flushes before abrupt exit and appends across runs")
+        subprocess.run([str(root / "test"), "--mirror", "test"], check=True)
+        print("PASS real native progress mirror draws only on the live main-thread console; EGL, disposed and background paths never draw")
     code = (Path(__file__).resolve().parents[1] / "switch/runtime/main.c").read_text()
     assert code.index('io_stdio_to_file(ROOT "/runtime.log")') < code.index('mono_jit_init("wog-switch-managed")')
     assert "refusing EGL transition without safe native stdio redirection" in code

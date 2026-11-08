@@ -66,7 +66,15 @@ internal static class LoaderSmoke
         PortableFiles.Move(assets + ".different", assets, true);
         Reject<InvalidDataException>(() => GameLoader.Prepare(settings, Console.WriteLine), "mixed PC game DLL versions are rejected");
         PortableFiles.Copy(Path.Combine(fixture, "WarOfGenesis.Assets.dll"), assets, true);
-        string[] summary = GameLoader.Run(settings, Console.WriteLine);
+        File.WriteAllText(settings.ReportPath, "STALE_PREVIOUS_SUCCESS");
+        bool freshReportObserved = false;
+        string[] summary = GameLoader.Run(settings, line => {
+            string current = File.ReadAllText(settings.ReportPath);
+            if (line.StartsWith("STEP inspect original DLL"))
+                freshReportObserved = !current.Contains("STALE_PREVIOUS_SUCCESS") && current.Contains(line) && current.Contains("Load check status: in progress");
+            Console.WriteLine(line);
+        });
+        Require(freshReportObserved, "current-run load journal replaces stale success and persists steps before logging callbacks");
         Require(summary[0].Contains("완료"), "real patched game DLLs load and the Main signature is verified");
         Require(GamePatcher.GameAssemblies.All(n => GameLoader.Digest(Path.Combine(release, n)) == originalHashes[n]), "original PC DLLs are unchanged");
         Require(!Directory.Exists(settings.SaveDir), "load validation creates no game save folder");
