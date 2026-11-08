@@ -1,0 +1,43 @@
+{
+  "version": "0.5.5",
+  "source_commit": "91073e12c901dbe567e80cfc7a667a38bba72c2d",
+  "managed_ci_run": 42531744750,
+  "real_game_sd_regression_ci_run": 42531744745,
+  "tested_pc_version": "1.0.86.0",
+  "old_overwrite_rename_failure_reproduced": true,
+  "actual_game_patch_load_passes_under_rename_failure": true,
+  "sdk9_method_reference_unresolved": {
+    "sdk9-patcher-unresolved-methods.txt": 0,
+    "sdk9-WarOfGenesis-unresolved-methods.txt": 0,
+    "sdk9-shim-unresolved-methods.txt": 0,
+    "sdk9-managed-host-unresolved-methods.txt": 0,
+    "sdk9-WarOfGenesis.Assets-unresolved-methods.txt": 0
+  },
+  "bridge_imports": 15,
+  "post_platform_patcher_missing": 0,
+  "desktop_actual_main_original_folder_cancel": true,
+  "previous_device_version": "0.5.4",
+  "previous_device_confirmed": [
+    "game patch/recheck/load completed with zero patcher unresolved items",
+    "Main invoked after X",
+    "Korean raster/PNG/GPU readback match",
+    "native runtime logs captured the previously hidden home-directory assertion"
+  ],
+  "this_version_hardware_tested": false,
+  "gameplay_verified": false,
+  "audio_output_available": false,
+  "managed_source_commit": "91073e12c901dbe567e80cfc7a667a38bba72c2d",
+  "previous_device_failure": "Main reached; WogShim.BclRedirects.GetFolderPath entered unsupported passwd lookup and triggered a runtime debug assertion",
+  "native_copy_metadata_failure_reproduced": true,
+  "portable_copy_integrity_and_move_rollback_passed": true,
+  "game_file_routes": {
+    "WarOfGenesis": 10,
+    "WarOfGenesis.Assets": 3
+  },
+  "native_stdio_disposed_console_regression_passed": true,
+  "startup_journal_persisted_before_main": true,
+  "native_progress_mirror_regression_passed": true,
+  "all_special_folder_routes_audited": true,
+  "current_run_load_report_persisted": true,
+  "real_game_major_patch_phase_callbacks_passed": true
+}
