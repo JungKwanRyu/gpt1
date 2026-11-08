@@ -1,0 +1,40 @@
+{
+  "version": "0.5.3",
+  "source_commit": "2f4171fe0cdf9ac8d41eac98547386febfbc5539",
+  "managed_ci_run": 42476610534,
+  "real_game_sd_regression_ci_run": 42476867525,
+  "tested_pc_version": "1.0.86.0",
+  "old_overwrite_rename_failure_reproduced": true,
+  "actual_game_patch_load_passes_under_rename_failure": true,
+  "sdk9_method_reference_unresolved": {
+    "sdk9-patcher-unresolved-methods.txt": 0,
+    "sdk9-WarOfGenesis-unresolved-methods.txt": 0,
+    "sdk9-shim-unresolved-methods.txt": 0,
+    "sdk9-managed-host-unresolved-methods.txt": 0,
+    "sdk9-WarOfGenesis.Assets-unresolved-methods.txt": 0
+  },
+  "bridge_imports": 15,
+  "post_platform_patcher_missing": 0,
+  "desktop_actual_main_original_folder_cancel": true,
+  "previous_device_version": "0.5.2",
+  "previous_device_confirmed": [
+    "original game DLL reads and hashes",
+    "original patcher execution",
+    "part1/part2 directory structure detection",
+    "Korean glyph/raster and PNG encode/decode/save",
+    "GPU upload and CPU/GPU pixel match",
+    "A controller input and graphics loop completion",
+    "Switch platform patch application and compatibility recheck before cache copy"
+  ],
+  "this_version_hardware_tested": false,
+  "gameplay_verified": false,
+  "audio_output_available": false,
+  "managed_source_commit": "324b3dd9fc3bf0f6fb85c1634134802745386e6f",
+  "previous_device_failure": "File.Copy after successful platform patch and revalidation; IOException 0x58 / ENOSYS",
+  "native_copy_metadata_failure_reproduced": true,
+  "portable_copy_integrity_and_move_rollback_passed": true,
+  "game_file_routes": {
+    "WarOfGenesis": 10,
+    "WarOfGenesis.Assets": 3
+  }
+}
