@@ -10,6 +10,7 @@ internal sealed class SwitchHost(bool desktop) : IHost
     private readonly int uiThread = Environment.CurrentManagedThreadId;
     private readonly ConcurrentQueue<DialogRequest> requests = new();
     private bool gameActive;
+    private readonly List<IAudioSink> audioSinks = new();
     internal LauncherSettings? Settings { get; set; }
     internal int Frames { get; private set; }
     internal bool ExitRequested { get; private set; }
@@ -23,6 +24,7 @@ internal sealed class SwitchHost(bool desktop) : IHost
     internal void EndGame()
     {
         Volatile.Write(ref gameActive, false);
+        lock (audioSinks) { foreach (var sink in audioSinks) sink.Dispose(); audioSinks.Clear(); }
         while (requests.TryDequeue(out var request)) request.Done.TrySetResult(-1);
     }
 
@@ -102,8 +104,9 @@ internal sealed class SwitchHost(bool desktop) : IHost
 
     public IAudioSink OpenAudio(int sampleRate, int channels, int bitsPerSample)
     {
-        Program.Log("AUDIO NOT READY: " + sampleRate + " Hz / " + channels + " channels / " + bitsPerSample + " bits");
-        throw new NotSupportedException("Switch PCM audio output is not integrated in checkpoint 0.5.");
+        var sink = SwitchAudioSink.Open(sampleRate, channels, bitsPerSample);
+        if (sink != null) lock (audioSinks) audioSinks.Add(sink);
+        return sink!;
     }
 
     internal XInput.State ReadPad()

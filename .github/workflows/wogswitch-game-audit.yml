@@ -11,6 +11,8 @@ on:
       - tools/fetch_game_fixture.py
       - tools/prepare_game_files.py
       - tools/test_runtime_stdio.py
+      - tools/test_native_audio.py
+      - switch/runtime/**
       - switch/managed/**
       - .github/workflows/wogswitch-game-audit.yml
 permissions:
@@ -71,6 +73,9 @@ jobs:
       - name: Reproduce disposed-console stdio and verify the native file redirect
         shell: bash
         run: python3 tools/test_runtime_stdio.py --nroforge work/forge | tee native-stdio-smoke.log
+      - name: Exercise streaming PCM and the actual audio driver with mocked audout
+        shell: bash
+        run: python3 tools/test_native_audio.py --output output/game-audit | tee native-audio-smoke.log
       - name: Build the actual host for Switch BCL API inspection
         run: dotnet publish switch/managed/WogSwitch.Managed.csproj -c Release -o work/managed-api-audit
       - name: Build the Horizon overwrite-rename behavior test
@@ -85,5 +90,7 @@ jobs:
           path: |
             game-audit.log
             native-stdio-smoke.log
+            native-audio-smoke.log
+            output/game-audit/*.wav
             output/game-audit/*.json
             output/game-audit/*.txt

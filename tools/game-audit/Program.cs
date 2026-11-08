@@ -17,6 +17,7 @@ RenameSemanticsSmoke.Run(output);
 PortableFilesSmoke.Run(output);
 RuntimeApiAudit.Run(output);
 DiagnosticsSmoke.Run();
+AudioSinkSmoke.Run();
 var flags = BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static | BindingFlags.Instance;
 var api = new Dictionary<string, object>();
 foreach (Type type in typeof(GameLayout).Assembly.GetTypes().Where(t => t.IsPublic))

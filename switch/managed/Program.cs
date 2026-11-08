@@ -21,7 +21,7 @@ internal static class Program
             // This supported runtime switch avoids resource-manager lookups
             // when the embedded runtime formats its own error messages.
             AppContext.SetSwitch("System.Resources.UseSystemResourceKeys", true);
-            Log("Managed checkpoint 0.5.5: visible patch phases and current-run load journal");
+            Log("Managed checkpoint 0.5.6: native PCM audio and per-file asset diagnostics");
             string root = desktop ? Path.GetTempPath() : "/switch/WogSwitchProbe";
             var layout = new GameLayout(Path.Combine(root, "release"), Path.Combine(root, "patched"),
                 Path.Combine(root, "save"), null, Path.Combine(root, "managed/WogShim.dll"));

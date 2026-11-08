@@ -170,7 +170,7 @@ internal static class GameLoader
 
     internal static string[] Run(LauncherSettings settings, Action<string> log)
     {
-        var report = new List<string> { "WogSwitch 0.5.5 game DLL patch/load check", "Load check status: in progress", "Main invoked: no",
+        var report = new List<string> { "WogSwitch 0.5.6 game DLL patch/load check", "Load check status: in progress", "Main invoked: no",
             "PC release: " + settings.ReleaseDir, "Part 2 folder detected: " + settings.Part2Present,
             "Part 1 folder detected: " + settings.Part1Present, "Game assets/characters detected: " +
                 System.IO.Directory.Exists(Path.Combine(settings.GameAssets, "characters")) };

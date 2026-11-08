@@ -6,12 +6,66 @@ namespace WogSwitch;
 public static class PlatformGameBridge
 {
     private static LauncherSettings? settings;
+    private static readonly object reportGate = new();
+    private static readonly HashSet<string> assetIoErrors = new(StringComparer.OrdinalIgnoreCase);
+    internal static Exception? ReportedCrash { get; private set; }
     internal static Action<string>? Notice;
-    internal static void Configure(LauncherSettings value) => settings = value;
+    internal static void Configure(LauncherSettings value) { settings = value; ReportedCrash = null; }
+
+    internal static void BeginAssetReport()
+    {
+        lock (reportGate)
+        {
+            assetIoErrors.Clear();
+            File.WriteAllText(Path.Combine(settings!.Root, "asset-report.txt"),
+                "Original asset diagnostics for this game session\nNOT_FOUND_OR_UNMAPPED = extraction returned false without an IO exception\nIO_ERROR = read or write raised an IO/access exception\n");
+        }
+    }
 
     public static void ReportUnavailable() => (Notice ?? Host.Log)("스위치에서는 게임 내 버그 리포트 창을 지원하지 않습니다. probe.log와 game-start.txt로 오류를 확인할 수 있습니다.");
     public static void Exit(int code) => throw new GameExitException(code);
-    public static void Crash(Exception error) => throw new GameStartupException(error);
+    public static void Crash(Exception error)
+    {
+        // This entry may be called from the game or a worker exception hook.
+        // Throwing a second custom exception here can abort Mono itself.
+        ReportedCrash = error;
+        try
+        {
+            string details = "GAME REPORTED ERROR:\n" + Diagnostics.Describe(error);
+            if (settings != null) File.AppendAllText(Path.Combine(settings.Root, "game-start.txt"), details + "\n");
+            Host.Log(details);
+        }
+        catch { /* Keep the original error from turning into a reporting failure. */ }
+        WogShim.Win32.User32.PostQuitMessage(1);
+    }
+
+    public static void RecordAssetIoError(object error, string asset)
+    {
+        try
+        {
+            lock (reportGate)
+            {
+                if (settings == null || !assetIoErrors.Add(asset)) return;
+                string details = error is Exception ex ? Diagnostics.Describe(ex) : error.GetType().Name;
+                File.AppendAllText(Path.Combine(settings.Root, "asset-report.txt"), "IO_ERROR " + asset + "\n" + details + "\n");
+            }
+        }
+        catch { /* Diagnostics must preserve the original extraction behavior. */ }
+    }
+
+    public static void RecordAssetUnavailable(string asset, string destination)
+    {
+        try
+        {
+            lock (reportGate)
+            {
+                if (settings == null) return;
+                string kind = assetIoErrors.Contains(asset) ? "UNAVAILABLE_AFTER_IO_ERROR" : "NOT_FOUND_OR_UNMAPPED";
+                File.AppendAllText(Path.Combine(settings.Root, "asset-report.txt"), kind + " " + asset + " -> " + destination + "\n");
+            }
+        }
+        catch { }
+    }
 
     public static string GetFolderPath(Environment.SpecialFolder folder) => folder switch
     {

@@ -5,7 +5,7 @@ namespace WogSwitch;
 
 internal static class PlatformPatches
 {
-    internal const string Version = "switch-platform-0.5.5-v1";
+    internal const string Version = "switch-platform-0.5.6-v1";
 
     internal static void Apply(string directory, Action<string> log)
     {
@@ -37,6 +37,7 @@ internal static class PlatformPatches
                 SetBody(scan, il => { il.Emit(OpCodes.Call, Import(assembly.MainModule, item.Bridge)); il.Emit(OpCodes.Ret); });
             }
             RewriteHostCalls(assembly.MainModule);
+            AddAssetDiagnostics(assembly.MainModule);
             WriteAndReplace(assembly, path);
         }
         log("PASS Switch platform patches: report UI notice, power/DPI calls, configured scans, app paths, controlled exit/crash");
@@ -142,6 +143,45 @@ internal static class PlatformPatches
                 else if (reference.Name == "GetFolderPath" && reference.Parameters.Count == 1)
                     instruction.Operand = Import(module, nameof(PlatformGameBridge.GetFolderPath));
             }
+    }
+
+    private static void AddAssetDiagnostics(ModuleDefinition module)
+    {
+        var type = module.GetType("WarOfGenesis.Assets.OriginalAssets") ?? throw new InvalidDataException("OriginalAssets type changed");
+        var core = type.Methods.Single(m => m.Name == "Extract");
+        if (!core.IsStatic || core.Parameters.Count != 4 || core.ReturnType.MetadataType != MetadataType.Boolean ||
+            core.Parameters[1].ParameterType.MetadataType != MetadataType.String || core.Parameters[2].ParameterType.MetadataType != MetadataType.String)
+            throw new InvalidDataException("OriginalAssets.Extract signature changed");
+        string originalName = core.FullName;
+        var callers = module.GetTypes().SelectMany(t => t.Methods).Where(m => m.HasBody)
+            .SelectMany(m => m.Body.Instructions).Where(i => i.Operand is MethodReference r && r.FullName == originalName).ToArray();
+        if (core.Body.ExceptionHandlers.Count != 1) throw new InvalidDataException("Extract exception handlers changed");
+        var handler = core.Body.ExceptionHandlers[0];
+        if (handler.HandlerType is not (ExceptionHandlerType.Filter or ExceptionHandlerType.Catch) || handler.HandlerStart.OpCode != OpCodes.Pop)
+            throw new InvalidDataException("Extract IO exception handler changed");
+        var il = core.Body.GetILProcessor(); var start = handler.HandlerStart;
+        var entry = il.Create(OpCodes.Dup);
+        il.InsertBefore(start, entry);
+        il.InsertBefore(start, il.Create(OpCodes.Ldarg_1));
+        il.InsertBefore(start, il.Create(OpCodes.Call, Import(module, nameof(PlatformGameBridge.RecordAssetIoError))));
+        handler.HandlerStart = entry;
+        core.Body.MaxStackSize = Math.Max(core.Body.MaxStackSize, 3);
+
+        core.Name = "SwitchExtractCore";
+        var wrapper = new MethodDefinition("Extract", core.Attributes, module.TypeSystem.Boolean);
+        foreach (var parameter in core.Parameters) wrapper.Parameters.Add(new ParameterDefinition(parameter.Name, parameter.Attributes, parameter.ParameterType));
+        type.Methods.Add(wrapper);
+        wrapper.Body.InitLocals = true;
+        wrapper.Body.Variables.Add(new VariableDefinition(module.TypeSystem.Boolean));
+        il = wrapper.Body.GetILProcessor();
+        foreach (var parameter in wrapper.Parameters) il.Emit(OpCodes.Ldarg, parameter);
+        il.Emit(OpCodes.Call, core); il.Emit(OpCodes.Stloc_0);
+        var done = il.Create(OpCodes.Ldloc_0);
+        il.Emit(OpCodes.Ldloc_0); il.Emit(OpCodes.Brtrue, done);
+        il.Emit(OpCodes.Ldarg_1); il.Emit(OpCodes.Ldarg_2);
+        il.Emit(OpCodes.Call, Import(module, nameof(PlatformGameBridge.RecordAssetUnavailable)));
+        il.Append(done); il.Emit(OpCodes.Ret);
+        foreach (var caller in callers) caller.Operand = wrapper;
     }
 
     private static void WriteAndReplace(AssemblyDefinition assembly, string path)

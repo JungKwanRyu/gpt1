@@ -49,6 +49,13 @@ internal static class StartupSmoke
         if (ask.Invoke(null, new object?[] { null, "test" }) != null || notices != 2) throw new InvalidDataException("Report dialogs did not execute their notice/cancel replacements");
         Console.WriteLine("PASS report UI entry points execute the host notice and cancel without WinForms controls");
         try { PlatformGameBridge.Exit(7); } catch (GameExitException ex) when (ex.ExitCode == 7) { Console.WriteLine("PASS controlled game exit preserves the host process"); }
+        RealMixerSmoke.Run();
+        AssetDiagnosticsSmoke.Run(root, output, settings);
+        PlatformGameBridge.Crash(new InvalidOperationException("SYNTHETIC_REPORTED_FAILURE"));
+        if (PlatformGameBridge.ReportedCrash?.Message != "SYNTHETIC_REPORTED_FAILURE" ||
+            !File.ReadAllText(Path.Combine(root, "game-start.txt")).Contains("SYNTHETIC_REPORTED_FAILURE"))
+            throw new InvalidDataException("Game crash reporter did not retain the error");
+        Console.WriteLine("PASS game crash reporting records the original error and posts quit without throwing a second exception");
     }
 
     private sealed class CancelHost : IHost

@@ -10,6 +10,7 @@
 #include <unistd.h>
 #include <reent.h>
 #include <sys/iosupport.h>
+#include "audio.h"
 
 #ifndef WOG_CHECKPOINT_VERSION
 #define WOG_CHECKPOINT_VERSION "0.3.0"
@@ -402,6 +403,8 @@ static void *bridge_symbol(void *handle, const char *name, char **err, void *use
     EXPORT(wog_running); EXPORT(wog_width); EXPORT(wog_height); EXPORT(wog_is_gles); EXPORT(wog_pad);
     EXPORT(wog_upload_bitmap); EXPORT(wog_draw_bitmap);
     EXPORT(wog_dialog_begin); EXPORT(wog_dialog_end);
+    EXPORT(wog_audio_open); EXPORT(wog_audio_write); EXPORT(wog_audio_played);
+    EXPORT(wog_audio_flush); EXPORT(wog_audio_close);
 #undef EXPORT
     stage("FAIL unknown bridge export: %s", name);
     return NULL;
@@ -467,6 +470,7 @@ int main(int argc, char **argv)
     int result = mono_jit_exec(domain, assembly, 1, managed_args);
     stage("Managed checkpoint exit code: %d", result);
 wait:
+    wog_audio_shutdown();
     if (graphics_active) wog_graphics_stop();
     stage("Press PLUS to exit. Results: switch/WogSwitchProbe/probe.log");
     padConfigureInput(1, HidNpadStyleSet_NpadStandard);
