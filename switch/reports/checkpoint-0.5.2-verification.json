@@ -1,0 +1,31 @@
+{
+  "version": "0.5.2",
+  "source_commit": "656c10143e880c7bf08c96bea59733d73673fce1",
+  "managed_ci_run": 42472179998,
+  "real_game_sd_regression_ci_run": 42472180006,
+  "tested_pc_version": "1.0.86.0",
+  "old_overwrite_rename_failure_reproduced": true,
+  "actual_game_patch_load_passes_under_rename_failure": true,
+  "sdk9_method_reference_unresolved": {
+    "sdk9-patcher-unresolved-methods.txt": 0,
+    "sdk9-WarOfGenesis-unresolved-methods.txt": 0,
+    "sdk9-shim-unresolved-methods.txt": 0,
+    "sdk9-managed-host-unresolved-methods.txt": 0,
+    "sdk9-WarOfGenesis.Assets-unresolved-methods.txt": 0
+  },
+  "bridge_imports": 15,
+  "post_platform_patcher_missing": 0,
+  "desktop_actual_main_original_folder_cancel": true,
+  "previous_device_version": "0.5.1",
+  "previous_device_confirmed": [
+    "original game DLL reads and hashes",
+    "original patcher execution",
+    "part1/part2 directory structure detection",
+    "Korean glyph/raster and PNG encode/decode/save",
+    "GPU upload and CPU/GPU pixel match",
+    "A controller input and graphics loop completion"
+  ],
+  "this_version_hardware_tested": false,
+  "gameplay_verified": false,
+  "audio_output_available": false
+}

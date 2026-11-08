@@ -214,3 +214,23 @@ WogShim과 사용자가 넣는 PC 게임 DLL 입력은 수정하지 않는다.
 관리 코드 CI: https://github.com/JungKwanRyu/gpt1/actions/runs/42429348671
 SDK9 및 게임 검사 CI: https://github.com/JungKwanRyu/gpt1/actions/runs/42429348675
 설치 안내: `switch/CHECKPOINT-0.5.1.ko.md`.
+
+## 0.5.1 실기 결과와 0.5.2 파일 교체 수정 — 2026-11-08
+
+새 사용자 로그에서 원본 DLL 두 개의 읽기·해시, 원본 패처 실행, 파트1·파트2 폴더
+구조와 PC assets 인식이 통과했다. 한글 글리프·래스터, PNG 저장·디코딩, EGL/GPU
+업로드·CPU/GPU 샘플 픽셀 일치, A 입력과 그래픽 루프 정상 종료도 실기에서 통과했다.
+단, 플랫폼 패치 DLL 교체의 File.Move(overwrite:true)가 EEXIST로 실패하여 Main은 미호출이다.
+
+0.5.2는 완성한 DLL을 메모리에서 직렬화한 뒤 자체 패치 캐시 파일을 create/truncate로
+다시 쓴다. 기존 파일 위로의 이름 변경에 의존하지 않으며 원본 release DLL은 읽기만 한다.
+캐시 버전을 올리고 기존 완료 마커·해시 검증을 유지한다.
+
+CI에 .switch-temp를 기존 대상 위로 rename하면 EEXIST를 반환하는 동작 주입 시험을
+추가했다. 옛 File.Move 방식의 실패를 재현한 뒤 같은 조건에서 새 패치·캐시 검증·
+DLL 로딩 및 Main의 안내·취소 복귀가 통과했다. SDK9 메서드 참조 검사는 5개 DLL 모두 0개다.
+0.5.2 NRO 링크·형식 검사는 통과했으며 수정판 실기 결과는 재확인해야 한다.
+
+관리 코드 CI: https://github.com/JungKwanRyu/gpt1/actions/runs/42472179998
+파일 교체 회귀 시험 CI: https://github.com/JungKwanRyu/gpt1/actions/runs/42472180006
+설치 안내: `switch/CHECKPOINT-0.5.2.ko.md`.
