@@ -165,7 +165,8 @@ internal static class Program
 
     internal static void Log(string line)
     {
-        if (line.StartsWith("PATCH ", StringComparison.Ordinal)) line += " [elapsed " + (long)patchClock.Elapsed.TotalSeconds + "s]";
+        if (line.StartsWith("PATCH ", StringComparison.Ordinal) || line.StartsWith("[wog] PATCH ", StringComparison.Ordinal))
+            line += " [elapsed " + (long)patchClock.Elapsed.TotalSeconds + "s]";
         if (desktop) Console.WriteLine(line);
         else Native.wog_log(line);
     }

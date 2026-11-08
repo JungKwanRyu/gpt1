@@ -8,7 +8,11 @@ if (args.Length != 2) throw new ArgumentException("Usage: GameAudit release-dire
 string release = Path.GetFullPath(args[0]), output = Path.GetFullPath(args[1]);
 Directory.CreateDirectory(output);
 var patchPhases = new List<string>();
-WogShim.Host.LogSink = line => { if (line.StartsWith("PATCH ")) patchPhases.Add(line); Console.WriteLine(line); };
+WogShim.Host.LogSink = line => {
+    string phase = line.StartsWith("[wog] ", StringComparison.Ordinal) ? line[6..] : line;
+    if (phase.StartsWith("PATCH ", StringComparison.Ordinal)) patchPhases.Add(phase);
+    Console.WriteLine(line);
+};
 RenameSemanticsSmoke.Run(output);
 PortableFilesSmoke.Run(output);
 RuntimeApiAudit.Run(output);
