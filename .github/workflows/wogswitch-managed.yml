@@ -9,6 +9,7 @@ on:
       - codex/wogswitch-runtime-fix
     paths:
       - switch/managed/**
+      - tools/runtime-compat/**
       - .github/workflows/wogswitch-managed.yml
 permissions:
   contents: read
@@ -38,6 +39,8 @@ jobs:
               (target / name).write_bytes(raw)
               print("Verified original public DLL:", name)
           
+      - name: Adapt the verified original patcher to the Switch BCL
+        run: dotnet run --project tools/runtime-compat/RuntimeCompat.csproj -c Release -- switch/managed/lib/WogPatcher.dll output/managed/runtime-compatibility.json
       - name: Build the platform-neutral managed host
         run: dotnet publish switch/managed/WogSwitch.Managed.csproj -c Release -o output/managed
       - name: Fetch the pinned Korean font and its OFL license

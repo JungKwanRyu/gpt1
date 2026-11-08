@@ -140,7 +140,7 @@ internal static class GameLoader
         {
             Assembly? game = null;
             int count = 0;
-            foreach (string file in GamePatcher.GameAssemblies.Reverse())
+            foreach (string file in ((IEnumerable<string>)GamePatcher.GameAssemblies).Reverse())
             {
                 string path = Path.Combine(prepared.Directory, file);
                 var assembly = AssemblyLoadContext.Default.LoadFromAssemblyPath(path);

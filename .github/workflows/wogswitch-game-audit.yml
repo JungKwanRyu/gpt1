@@ -7,6 +7,7 @@ on:
       - codex/wogswitch-runtime-fix
     paths:
       - tools/game-audit/**
+      - tools/runtime-compat/**
       - tools/fetch_game_fixture.py
       - tools/prepare_game_files.py
       - switch/managed/**
@@ -37,6 +38,8 @@ jobs:
                   data = response.read()
               assert hashlib.sha256(data).hexdigest() == expected
               (target / name).write_bytes(data)
+      - name: Adapt the verified patcher to the Switch BCL
+        run: dotnet run --project tools/runtime-compat/RuntimeCompat.csproj -c Release -- switch/managed/lib/WogPatcher.dll output/game-audit/runtime-compatibility.json
       - name: Fetch the pinned public PC release for compatibility testing
         run: python3 tools/fetch_game_fixture.py
       - name: Test the SD input preparation helper on the real package
@@ -64,6 +67,8 @@ jobs:
           with open(os.environ['GITHUB_ENV'], 'a') as stream:
               stream.write('WOG_SDK_MONO=' + str(target) + '\n')
           PY
+      - name: Build the actual host for Switch BCL API inspection
+        run: dotnet publish switch/managed/WogSwitch.Managed.csproj -c Release -o work/managed-api-audit
       - name: Patch and load the real PC DLLs without entering the game
         shell: bash
         run: dotnet run --project tools/game-audit/GameAudit.csproj -c Release -- work/prepared-game/release output/game-audit | tee game-audit.log
