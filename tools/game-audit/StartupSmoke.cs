@@ -14,7 +14,7 @@ internal static class StartupSmoke
         foreach (string file in Directory.GetFiles(assets, "*", SearchOption.AllDirectories))
         {
             string to = Path.Combine(settings.ReleaseDir, "assets", Path.GetRelativePath(assets, file));
-            Directory.CreateDirectory(Path.GetDirectoryName(to)!); File.Copy(file, to, true);
+            Directory.CreateDirectory(Path.GetDirectoryName(to)!); PortableFiles.Copy(file, to, true);
         }
         PlatformGameBridge.Notice = text => Console.WriteLine("NOTICE " + text);
         foreach (string file in WogPatcher.GamePatcher.GameAssemblies)
@@ -29,7 +29,7 @@ internal static class StartupSmoke
             throw new InvalidDataException("Actual Main should reach the original-folder prompt and return after cancel: code=" + code + ", asks=" + host.AskCount + ", graphics=" + host.GraphicsCalls);
         string report = File.ReadAllText(Path.Combine(root, "game-start.txt"));
         if (!report.Contains("Main invoked: yes") || !report.Contains("Main returned normally")) throw new InvalidDataException("Main execution was not recorded");
-        File.Copy(Path.Combine(root, "game-start.txt"), Path.Combine(output, "game-start.txt"), true);
+        PortableFiles.Copy(Path.Combine(root, "game-start.txt"), Path.Combine(output, "game-start.txt"), true);
         Console.WriteLine("PASS ACTUAL GAME MAIN: original-folder dialog reached; cancellation returned normally; no GPU/gameplay claimed");
         var game = AppDomain.CurrentDomain.GetAssemblies().Single(a => a.GetName().Name == "WarOfGenesis");
         var reportType = game.GetType("DuelDx.MyBugReportsDialog", true)!;

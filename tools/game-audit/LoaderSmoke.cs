@@ -22,8 +22,8 @@ internal static class LoaderSmoke
         string root = Path.Combine(output, "app"), release = Path.Combine(root, "release");
         Directory.CreateDirectory(release);
         Directory.CreateDirectory(Path.Combine(root, "managed"));
-        File.Copy(typeof(GameLayout).Assembly.Location, Path.Combine(root, "managed/WogPatcher.dll"), true);
-        File.Copy(typeof(WogShim.Host).Assembly.Location, Path.Combine(root, "managed/WogShim.dll"), true);
+        PortableFiles.Copy(typeof(GameLayout).Assembly.Location, Path.Combine(root, "managed/WogPatcher.dll"), true);
+        PortableFiles.Copy(typeof(WogShim.Host).Assembly.Location, Path.Combine(root, "managed/WogShim.dll"), true);
         var settings = LauncherSettings.Read(root);
         Require(LauncherSettings.NormalizeSdPath("sdmc:/switch/WogSwitchProbe") == "/switch/WogSwitchProbe", "SD mount notation normalizes to an absolute managed path");
         Reject<FileNotFoundException>(() => GameLoader.Prepare(settings, Console.WriteLine), "missing game DLLs are reported before patching");
@@ -38,7 +38,7 @@ internal static class LoaderSmoke
         Reject<InvalidDataException>(() => LauncherSettings.Read(root), "duplicate configuration keys are rejected");
         File.WriteAllText(ini, "[game]\nrelease=release\noriginal=original/part2\npart1=original/part1\nassets=release/assets\n");
         settings = LauncherSettings.Read(root);
-        foreach (string file in GamePatcher.GameAssemblies) File.Copy(Path.Combine(fixture, file), Path.Combine(release, file), true);
+        foreach (string file in GamePatcher.GameAssemblies) PortableFiles.Copy(Path.Combine(fixture, file), Path.Combine(release, file), true);
         var originalHashes = GamePatcher.GameAssemblies.ToDictionary(n => n, n => GameLoader.Digest(Path.Combine(release, n)));
         var first = GameLoader.Prepare(settings, Console.WriteLine);
         Require(!first.CacheHit && first.Missing.Length == 0, "real PC game platform patches pass the original patcher's compatibility recheck");
@@ -56,7 +56,7 @@ internal static class LoaderSmoke
         File.WriteAllBytes(game, changed);
         var revised = GameLoader.Prepare(settings, Console.WriteLine);
         Require(revised.Directory != first.Directory, "changed source DLL content invalidates the cache even when version and MVID are unchanged");
-        File.Copy(Path.Combine(fixture, "WarOfGenesis.dll"), game, true);
+        PortableFiles.Copy(Path.Combine(fixture, "WarOfGenesis.dll"), game, true);
         string assets = Path.Combine(release, "WarOfGenesis.Assets.dll");
         using (var assembly = AssemblyDefinition.ReadAssembly(assets))
         {
@@ -65,15 +65,15 @@ internal static class LoaderSmoke
         }
         PortableFiles.Move(assets + ".different", assets, true);
         Reject<InvalidDataException>(() => GameLoader.Prepare(settings, Console.WriteLine), "mixed PC game DLL versions are rejected");
-        File.Copy(Path.Combine(fixture, "WarOfGenesis.Assets.dll"), assets, true);
+        PortableFiles.Copy(Path.Combine(fixture, "WarOfGenesis.Assets.dll"), assets, true);
         string[] summary = GameLoader.Run(settings, Console.WriteLine);
         Require(summary[0].Contains("완료"), "real patched game DLLs load and the Main signature is verified");
         Require(GamePatcher.GameAssemblies.All(n => GameLoader.Digest(Path.Combine(release, n)) == originalHashes[n]), "original PC DLLs are unchanged");
         Require(!Directory.Exists(settings.SaveDir), "load validation creates no game save folder");
         string report = File.ReadAllText(settings.ReportPath);
         Require(report.Contains("Main invoked: no") && report.Contains("unresolved items="), "load report distinguishes DLL loading from game execution");
-        File.Copy(settings.ReportPath, Path.Combine(output, "load-report.txt"), true);
-        File.Copy(Path.Combine(first.Directory, "compatibility.txt"), Path.Combine(output, "patch-report.txt"), true);
+        PortableFiles.Copy(settings.ReportPath, Path.Combine(output, "load-report.txt"), true);
+        PortableFiles.Copy(Path.Combine(first.Directory, "compatibility.txt"), Path.Combine(output, "patch-report.txt"), true);
         File.WriteAllLines(Path.Combine(output, "loader-smoke-summary.txt"), summary);
         Console.WriteLine("PASS REAL GAME LOADER SMOKE COMPLETE; Main was not invoked");
         StartupSmoke.Run(fixture, root, output, settings, first.Directory);
