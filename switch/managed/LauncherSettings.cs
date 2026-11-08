@@ -38,7 +38,9 @@ internal sealed class LauncherSettings
                 int split = line.IndexOf('=');
                 if (split <= 0) throw new InvalidDataException("Invalid launcher.ini line: " + line);
                 string key = line[..split].Trim(), value = line[(split + 1)..].Trim();
-                if (!new[] { "release", "original", "part1", "assets" }.Contains(key, StringComparer.OrdinalIgnoreCase))
+                // Explicit IEnumerable overload: C# 14 otherwise selects the
+                // .NET 10 ReadOnlySpan/comparer extension absent from Switch's BCL9.
+                if (!Enumerable.Contains((IEnumerable<string>)new[] { "release", "original", "part1", "assets" }, key, StringComparer.OrdinalIgnoreCase))
                     throw new InvalidDataException("Unknown launcher.ini setting: " + key);
                 if (value.Length == 0 || value.Contains('\0') || !values.TryAdd(key, value))
                     throw new InvalidDataException("Empty or repeated launcher.ini setting: " + key);

@@ -11,6 +11,18 @@ internal static class RuntimeApiAudit
             (Name: "patcher", Path: typeof(GamePatcher).Assembly.Location),
             (Name: "shim", Path: typeof(WogShim.Host).Assembly.Location),
             (Name: "managed-host", Path: System.IO.Path.GetFullPath("work/managed-api-audit/WogSwitch.Managed.dll")) };
+        Inspect(output, runtime, inputs);
+    }
+
+    internal static void RunGames(string output, string directory)
+    {
+        string? runtime = Environment.GetEnvironmentVariable("WOG_SDK_MONO");
+        if (string.IsNullOrEmpty(runtime)) return;
+        Inspect(output, runtime, GamePatcher.GameAssemblies.Select(n => (Name: System.IO.Path.GetFileNameWithoutExtension(n)!, Path: System.IO.Path.Combine(directory, n))));
+    }
+
+    private static void Inspect(string output, string runtime, IEnumerable<(string Name, string Path)> inputs)
+    {
         int total = 0;
         foreach (var input in inputs)
         {

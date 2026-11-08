@@ -121,6 +121,10 @@ internal static class PlatformPatches
         foreach (var method in module.GetTypes().SelectMany(t => t.Methods).Where(m => m.HasBody))
             foreach (var instruction in method.Body.Instructions)
             {
+                if (instruction.OpCode == OpCodes.Call && instruction.Operand is GenericInstanceMethod generic &&
+                    generic.ElementMethod.DeclaringType.FullName == "System.Linq.Enumerable" && generic.Name == "Reverse" &&
+                    generic.ElementMethod.Parameters.Count == 1 && generic.ElementMethod.Parameters[0].ParameterType is ArrayType)
+                    generic.ElementMethod.Parameters[0].ParameterType = generic.ElementMethod.ReturnType;
                 if (instruction.OpCode != OpCodes.Call || instruction.Operand is not MethodReference reference || reference.DeclaringType.FullName != "System.Environment") continue;
                 if (reference.Name == "Exit" && reference.Parameters.Count == 1 && reference.Parameters[0].ParameterType.FullName == "System.Int32")
                     instruction.Operand = Import(module, nameof(PlatformGameBridge.Exit));

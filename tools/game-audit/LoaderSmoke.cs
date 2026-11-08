@@ -43,6 +43,7 @@ internal static class LoaderSmoke
         var first = GameLoader.Prepare(settings, Console.WriteLine);
         Require(!first.CacheHit && first.Missing.Length == 0, "real PC game platform patches pass the original patcher's compatibility recheck");
         Require(File.ReadAllText(Path.Combine(first.Directory, "upstream-compatibility.txt")).Contains("missing 90"), "the original 90-item report is preserved separately");
+        RuntimeApiAudit.RunGames(output, first.Directory);
         var second = GameLoader.Prepare(settings, Console.WriteLine);
         Require(second.CacheHit && second.Directory == first.Directory && second.Missing.SequenceEqual(first.Missing), "cache reuse verifies DLL hashes and keeps the compatibility warnings");
         File.AppendAllText(Path.Combine(first.Directory, "WarOfGenesis.dll"), "tampered-cache");
