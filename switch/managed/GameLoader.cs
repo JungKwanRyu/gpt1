@@ -83,7 +83,10 @@ internal static class GameLoader
             File.WriteAllText(Path.Combine(directory, "compatibility.txt"), finalReport.ToString());
             File.WriteAllLines(Path.Combine(directory, "missing.txt"), finalReport.Missing);
             foreach (string name in GamePatcher.GameAssemblies)
-                File.Copy(Path.Combine(verified, name), Path.Combine(directory, name), true);
+            {
+                Diagnostics.Step("commit verified DLL " + name, log);
+                PortableFiles.Copy(Path.Combine(verified, name), Path.Combine(directory, name), true);
+            }
             log("Post-platform-patch compatibility: " + finalReport.Missing.Count + " unresolved items");
             foreach (string name in GamePatcher.GameAssemblies)
             {

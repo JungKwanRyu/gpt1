@@ -23,6 +23,26 @@ public static class PlatformGameBridge
 
     public static string? ScanPart2() => settings?.Part2Present == true ? settings.OriginalPart2 : null;
     public static string? ScanPart1() => settings?.Part1Present == true ? settings.OriginalPart1 : null;
+
+    private static void CheckWritable(string path)
+    {
+        var value = settings ?? throw new InvalidOperationException("Game paths not configured");
+        if (!LauncherSettings.Contains(value.Root, path) || new[] { value.ReleaseDir, value.OriginalPart1, value.OriginalPart2 }.Any(input => LauncherSettings.Contains(input, path)))
+            throw new IOException("Game file writes must stay in the app's writable folders: " + path);
+    }
+
+    public static void CopyFile(string source, string destination) => CopyFile(source, destination, false);
+    public static void CopyFile(string source, string destination, bool overwrite)
+    {
+        CheckWritable(destination);
+        PortableFiles.Copy(source, destination, overwrite);
+    }
+    public static void MoveFile(string source, string destination) => MoveFile(source, destination, false);
+    public static void MoveFile(string source, string destination, bool overwrite)
+    {
+        CheckWritable(source); CheckWritable(destination);
+        PortableFiles.Move(source, destination, overwrite);
+    }
 }
 
 public sealed class GameExitException(int code) : Exception("Game requested exit " + code)

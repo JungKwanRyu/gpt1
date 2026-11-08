@@ -5,7 +5,7 @@ namespace WogSwitch;
 
 internal static class PlatformPatches
 {
-    internal const string Version = "switch-platform-0.5.2-v1";
+    internal const string Version = "switch-platform-0.5.3-v1";
 
     internal static void Apply(string directory, Action<string> log)
     {
@@ -125,6 +125,16 @@ internal static class PlatformPatches
                     generic.ElementMethod.DeclaringType.FullName == "System.Linq.Enumerable" && generic.Name == "Reverse" &&
                     generic.ElementMethod.Parameters.Count == 1 && generic.ElementMethod.Parameters[0].ParameterType is ArrayType)
                     generic.ElementMethod.Parameters[0].ParameterType = generic.ElementMethod.ReturnType;
+                if (instruction.OpCode == OpCodes.Call && instruction.Operand is MethodReference fileCall &&
+                    fileCall.DeclaringType.FullName == "System.IO.File" && fileCall.Name is "Copy" or "Move")
+                {
+                    if (fileCall.Parameters.Count is not (2 or 3) ||
+                        fileCall.Parameters[0].ParameterType.FullName != "System.String" || fileCall.Parameters[1].ParameterType.FullName != "System.String" ||
+                        (fileCall.Parameters.Count == 3 && fileCall.Parameters[2].ParameterType.FullName != "System.Boolean"))
+                        throw new InvalidDataException("Unexpected File.Copy/Move signature: " + fileCall.FullName);
+                    var parameters = fileCall.Parameters.Count == 2 ? new[] { typeof(string), typeof(string) } : new[] { typeof(string), typeof(string), typeof(bool) };
+                    instruction.Operand = module.ImportReference(typeof(PlatformGameBridge).GetMethod(fileCall.Name == "Copy" ? "CopyFile" : "MoveFile", parameters)!);
+                }
                 if (instruction.OpCode != OpCodes.Call || instruction.Operand is not MethodReference reference || reference.DeclaringType.FullName != "System.Environment") continue;
                 if (reference.Name == "Exit" && reference.Parameters.Count == 1 && reference.Parameters[0].ParameterType.FullName == "System.Int32")
                     instruction.Operand = Import(module, nameof(PlatformGameBridge.Exit));

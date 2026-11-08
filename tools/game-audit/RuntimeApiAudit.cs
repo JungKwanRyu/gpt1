@@ -31,6 +31,8 @@ internal static class RuntimeApiAudit
             using var assembly = AssemblyDefinition.ReadAssembly(input.Path, new ReaderParameters { AssemblyResolver = resolver });
             var lines = new List<string>();
             var problems = new HashSet<string>();
+            bool owned = input.Name is not ("patcher" or "shim");
+            int routed = 0;
             foreach (var type in assembly.MainModule.GetTypes())
                 foreach (var method in type.Methods.Where(m => m.HasBody))
                 {
@@ -41,6 +43,12 @@ internal static class RuntimeApiAudit
                     }
                     foreach (var instruction in method.Body.Instructions)
                     {
+                        if (owned && instruction.Operand is MethodReference file && file.DeclaringType.FullName == "System.IO.File" && file.Name is "Copy" or "Move")
+                        {
+                            bool allowed = input.Name == "managed-host" && type.FullName == "WogSwitch.PortableFiles" && method.Name == "RenameToAbsent" && file.Name == "Move";
+                            if (!allowed) problems.Add("Unsupported file operation: " + method.FullName + " -> " + file.FullName);
+                        }
+                        if (instruction.Operand is MethodReference bridge && bridge.DeclaringType.FullName == "WogSwitch.PlatformGameBridge" && bridge.Name is "CopyFile" or "MoveFile") routed++;
                         if (instruction.Operand is not MethodReference reference || reference.DeclaringType.Scope is not AssemblyNameReference scope || !scope.Name.StartsWith("System.")) continue;
                         try { if (reference.Resolve() == null) problems.Add(method.FullName + " -> " + reference.FullName); }
                         catch (Exception ex) { problems.Add(method.FullName + " -> " + reference.FullName + " [" + ex.GetType().Name + "]"); }
@@ -49,6 +57,7 @@ internal static class RuntimeApiAudit
             if (lines.Count != 0) File.WriteAllLines(System.IO.Path.Combine(output, "patcher-static-initializer.txt"), lines);
             File.WriteAllLines(System.IO.Path.Combine(output, "sdk9-" + input.Name + "-unresolved-methods.txt"), problems);
             Console.WriteLine("SDK9 " + input.Name + " API AUDIT unresolved=" + problems.Count);
+            if (owned) Console.WriteLine("PORTABLE FILE ROUTE AUDIT " + input.Name + " routed=" + routed);
             foreach (string problem in problems) Console.WriteLine("SDK9 API: " + problem);
             total += problems.Count;
         }

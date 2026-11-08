@@ -63,7 +63,7 @@ internal static class LoaderSmoke
             assembly.Name.Version = new Version(0, 0, 0, 1);
             assembly.Write(assets + ".different");
         }
-        File.Move(assets + ".different", assets, true);
+        PortableFiles.Move(assets + ".different", assets, true);
         Reject<InvalidDataException>(() => GameLoader.Prepare(settings, Console.WriteLine), "mixed PC game DLL versions are rejected");
         File.Copy(Path.Combine(fixture, "WarOfGenesis.Assets.dll"), assets, true);
         string[] summary = GameLoader.Run(settings, Console.WriteLine);
