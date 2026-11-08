@@ -69,9 +69,11 @@ jobs:
           PY
       - name: Build the actual host for Switch BCL API inspection
         run: dotnet publish switch/managed/WogSwitch.Managed.csproj -c Release -o work/managed-api-audit
+      - name: Build the Horizon overwrite-rename behavior test
+        run: gcc -shared -fPIC -O2 tools/game-audit/libnx_rename_semantics.c -ldl -o work/libnx-rename-semantics.so
       - name: Patch and load the real PC DLLs without entering the game
         shell: bash
-        run: dotnet run --project tools/game-audit/GameAudit.csproj -c Release -- work/prepared-game/release output/game-audit | tee game-audit.log
+        run: LD_PRELOAD="$PWD/work/libnx-rename-semantics.so" WOG_TEST_LIBNX_RENAME=1 dotnet run --project tools/game-audit/GameAudit.csproj -c Release -- work/prepared-game/release output/game-audit | tee game-audit.log
       - uses: actions/upload-artifact@v4
         if: always()
         with:

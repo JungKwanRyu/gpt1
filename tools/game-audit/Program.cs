@@ -7,6 +7,7 @@ using WogPatcher;
 if (args.Length != 2) throw new ArgumentException("Usage: GameAudit release-directory report-directory");
 string release = Path.GetFullPath(args[0]), output = Path.GetFullPath(args[1]);
 Directory.CreateDirectory(output);
+RenameSemanticsSmoke.Run(output);
 RuntimeApiAudit.Run(output);
 DiagnosticsSmoke.Run();
 var flags = BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static | BindingFlags.Instance;

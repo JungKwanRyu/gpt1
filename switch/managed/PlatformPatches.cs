@@ -5,7 +5,7 @@ namespace WogSwitch;
 
 internal static class PlatformPatches
 {
-    internal const string Version = "switch-platform-0.5-v1";
+    internal const string Version = "switch-platform-0.5.2-v1";
 
     internal static void Apply(string directory, Action<string> log)
     {
@@ -135,7 +135,15 @@ internal static class PlatformPatches
 
     private static void WriteAndReplace(AssemblyDefinition assembly, string path)
     {
-        assembly.Write(path + ".switch-temp");
-        File.Move(path + ".switch-temp", path, true);
+        // Horizon's rename rejects an existing destination even when .NET
+        // requests overwrite. Serialize completely before opening the owned
+        // patch-cache file with create/truncate; never replace a release input.
+        // The cache completion marker/hashes are written only after all patches
+        // and validation finish, so an interrupted write cannot be reused.
+        using var image = new MemoryStream();
+        assembly.Write(image);
+        image.Position = 0;
+        using var output = new FileStream(path, FileMode.Create, FileAccess.Write, FileShare.None);
+        image.CopyTo(output);
     }
 }
