@@ -28,6 +28,7 @@ internal static class GameLoader
         Version? version = null;
         foreach (string name in GamePatcher.GameAssemblies)
         {
+            Diagnostics.Step("inspect original DLL " + name, log);
             string file = Path.Combine(settings.ReleaseDir, name);
             if (!File.Exists(file)) throw new FileNotFoundException("Copy the PC release DLL into release/: " + name, file);
             using var assembly = AssemblyDefinition.ReadAssembly(file);
@@ -41,11 +42,13 @@ internal static class GameLoader
             if (version != null && version != assembly.Name.Version)
                 throw new InvalidDataException("The two game DLL versions differ; copy both from the same PC release.");
             version = assembly.Name.Version;
+            Diagnostics.Step("SHA256 original DLL " + name, log);
             hashes[name] = Digest(file);
         }
         if (!File.Exists(settings.ShimPath)) throw new FileNotFoundException("Bundled WogShim missing", settings.ShimPath);
         string patcherPath = Path.Combine(settings.Root, "managed", "WogPatcher.dll");
         if (!File.Exists(patcherPath)) throw new FileNotFoundException("Bundled WogPatcher missing", patcherPath);
+        Diagnostics.Step("compute patch cache identity", log);
         string material = CacheVersion + "\n" + PlatformPatches.Version + "\n" + typeof(PlatformGameBridge).Assembly.ManifestModule.ModuleVersionId +
             "\n" + Digest(settings.ShimPath) + "\n" + Digest(patcherPath) + "\n" +
             string.Join("\n", GamePatcher.GameAssemblies.Select(n => n + ":" + hashes[n]));
@@ -62,17 +65,20 @@ internal static class GameLoader
                 log("Incomplete or changed patch cache preserved at " + preserved);
             }
             var layout = new GameLayout(settings.ReleaseDir, directory, settings.SaveDir, null, settings.ShimPath);
+            Diagnostics.Step("original GameLauncher.Prepare", log);
             string prepared = GameLauncher.Prepare(layout, log);
             if (!Path.GetFullPath(prepared).Equals(directory, StringComparison.Ordinal))
                 throw new InvalidDataException("Patcher returned an unexpected output folder");
             var report = GameLauncher.LastReport ?? throw new InvalidDataException("Patcher did not return a compatibility report");
             File.WriteAllText(Path.Combine(directory, "upstream-compatibility.txt"), report.ToString());
             var changes = new List<string>();
+            Diagnostics.Step("apply Switch platform patches", log);
             PlatformPatches.Apply(directory, line => { changes.Add(line); log(line); });
             File.WriteAllLines(Path.Combine(directory, "platform-patches.txt"), changes);
             // Re-run the original public patcher/validator on the rewritten DLLs.
             // Its report, rather than a filtered list of old warnings, is authoritative.
             string verified = Path.Combine(directory, "verified");
+            Diagnostics.Step("verify Switch platform patches", log);
             var finalReport = GamePatcher.Patch(directory, settings.ShimPath, verified);
             File.WriteAllText(Path.Combine(directory, "compatibility.txt"), finalReport.ToString());
             File.WriteAllLines(Path.Combine(directory, "missing.txt"), finalReport.Missing);
@@ -179,7 +185,7 @@ internal static class GameLoader
         }
         catch (Exception ex)
         {
-            Record("FAIL game load check: " + ex);
+            Record("FAIL game load check:\n" + Diagnostics.Describe(ex));
             throw;
         }
         finally { File.WriteAllLines(settings.ReportPath, report); }

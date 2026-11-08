@@ -30,4 +30,4 @@ public sealed class GameExitException(int code) : Exception("Game requested exit
     public int ExitCode { get; } = code;
 }
 
-public sealed class GameStartupException(Exception error) : Exception("Game startup failed: " + error.Message, error);
+public sealed class GameStartupException(Exception error) : Exception("Game startup failed: " + Diagnostics.Message(error), error);

@@ -6,6 +6,7 @@ on:
       - codex/wogswitch-skia
       - codex/wogswitch-game-loader
       - codex/wogswitch-startup
+      - codex/wogswitch-runtime-fix
     paths:
       - switch/managed/**
       - .github/workflows/wogswitch-managed.yml
@@ -61,7 +62,7 @@ jobs:
         run: dotnet output/managed/WogSwitch.Managed.dll --desktop-smoke | tee output/desktop-smoke.log
       - uses: actions/upload-artifact@v4
         with:
-          name: WogSwitch-managed-0.5
+          name: WogSwitch-managed-0.5.1
           path: |
             output/managed/*.dll
             output/managed/*.json

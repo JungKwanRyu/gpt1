@@ -17,7 +17,10 @@ internal static class Program
         desktop = args.Contains("--desktop-smoke");
         try
         {
-            Log("Managed checkpoint 0.5: platform patches and optional actual game startup");
+            // This supported runtime switch avoids resource-manager lookups
+            // when the embedded runtime formats its own error messages.
+            AppContext.SetSwitch("System.Resources.UseSystemResourceKeys", true);
+            Log("Managed checkpoint 0.5.1: preserve original runtime errors and trace startup");
             string root = desktop ? Path.GetTempPath() : "/switch/WogSwitchProbe";
             var layout = new GameLayout(Path.Combine(root, "release"), Path.Combine(root, "patched"),
                 Path.Combine(root, "save"), null, Path.Combine(root, "managed/WogShim.dll"));
@@ -58,9 +61,16 @@ internal static class Program
             LauncherSettings? launchSettings = null;
             try
             {
+                Diagnostics.Step("read launcher settings", Log);
                 var settings = LauncherSettings.Read(root);
                 launchSettings = settings; host.Settings = settings;
-                if (settings.HasAnyGameDll) status = GameLoader.Run(settings, Log);
+                Log("Resolved PC release: " + settings.ReleaseDir);
+                Diagnostics.Step("check PC game DLL presence", Log);
+                if (settings.HasAnyGameDll)
+                {
+                    Diagnostics.Step("prepare and load PC game", Log);
+                    status = GameLoader.Run(settings, Log);
+                }
                 else
                 {
                     Log("WAIT game DLLs: copy both original PC DLLs into " + settings.ReleaseDir);
@@ -73,12 +83,14 @@ internal static class Program
             catch (Exception ex)
             {
                 gameCheckFailed = true;
-                Log("FAIL game preparation: " + ex);
-                File.WriteAllText(Path.Combine(root, "load-report.txt"), "Main invoked: no\nFAIL game preparation: " + ex);
+                string details = Diagnostics.Describe(ex);
+                Log("FAIL game preparation:\n" + details);
+                try { File.WriteAllText(Path.Combine(root, "load-report.txt"), "Main invoked: no\nFAIL game preparation:\n" + details); }
+                catch (Exception writeError) { Log("FAIL write load-report: " + Diagnostics.Describe(writeError)); }
                 status = new[] { "게임 DLL 확인 실패", ex.GetType().Name, "자세한 원인: load-report.txt", "이미지·한글 검사는 이어서 진행합니다" };
             }
 
-            Log("Testing native graphics context...");
+            Diagnostics.Step("native graphics context", Log);
             if (Native.wog_graphics_start() == 0)
             {
                 Log("FAIL native EGL/OpenGL initialization; see probe.log");
@@ -140,7 +152,7 @@ internal static class Program
         }
         catch (Exception ex)
         {
-            Log("FAIL managed checkpoint: " + ex);
+            Log("FAIL managed checkpoint:\n" + Diagnostics.Describe(ex));
             return 1;
         }
     }

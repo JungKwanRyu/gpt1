@@ -49,7 +49,7 @@ internal static class GameSession
         }
         catch (Exception ex)
         {
-            Record("FAIL game startup: " + ex);
+            Record("FAIL game startup:\n" + Diagnostics.Describe(ex));
             return 1;
         }
         finally

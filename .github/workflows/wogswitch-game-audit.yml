@@ -4,6 +4,7 @@ on:
     branches:
       - codex/wogswitch-game-loader
       - codex/wogswitch-startup
+      - codex/wogswitch-runtime-fix
     paths:
       - tools/game-audit/**
       - tools/fetch_game_fixture.py
@@ -40,6 +41,29 @@ jobs:
         run: python3 tools/fetch_game_fixture.py
       - name: Test the SD input preparation helper on the real package
         run: python3 tools/prepare_game_files.py --package work/game-fixture/game.nupkg --destination work/prepared-game/release
+      - name: Restore the exact public Switch BCL for API inspection
+        shell: bash
+        run: |
+          git init work/forge
+          git -C work/forge remote add origin https://github.com/BennettNotFound/NroForge.git
+          git -C work/forge fetch --depth 1 origin e41f2e68b212737da81ddc97fe5c7b881bb125e8
+          git -C work/forge checkout --detach FETCH_HEAD
+          python3 - <<'PY'
+          import os, sys, shutil
+          from pathlib import Path
+          repo = Path('work/forge').resolve()
+          sys.path.insert(0, str(repo))
+          from scripts.sdk import ensure
+          sdk = ensure(repo, repo / '.nroforge/sdk')
+          mono = sdk / 'sdk/mono/artifacts/bin'
+          target = Path('work/sdk-runtime9').resolve()
+          target.mkdir(parents=True, exist_ok=True)
+          for file in (mono / 'runtime/net9.0-libnx-Debug-arm64').glob('*.dll'):
+              shutil.copy2(file, target / file.name)
+          shutil.copy2(mono / 'mono/libnx.arm64.Debug/System.Private.CoreLib.dll', target)
+          with open(os.environ['GITHUB_ENV'], 'a') as stream:
+              stream.write('WOG_SDK_MONO=' + str(target) + '\n')
+          PY
       - name: Patch and load the real PC DLLs without entering the game
         shell: bash
         run: dotnet run --project tools/game-audit/GameAudit.csproj -c Release -- work/prepared-game/release output/game-audit | tee game-audit.log
