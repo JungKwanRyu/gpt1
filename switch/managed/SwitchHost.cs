@@ -104,8 +104,13 @@ internal sealed class SwitchHost(bool desktop) : IHost
 
     public IAudioSink OpenAudio(int sampleRate, int channels, int bitsPerSample)
     {
+        if (!Volatile.Read(ref gameActive)) return null!;
         var sink = SwitchAudioSink.Open(sampleRate, channels, bitsPerSample);
-        if (sink != null) lock (audioSinks) audioSinks.Add(sink);
+        if (sink != null) lock (audioSinks)
+        {
+            if (!Volatile.Read(ref gameActive)) { sink.Dispose(); return null!; }
+            audioSinks.Add(sink);
+        }
         return sink!;
     }
 
