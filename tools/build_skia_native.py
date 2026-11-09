@@ -88,6 +88,16 @@ void* sk_fdmmap(int, size_t*) { return nullptr; }
     if old not in data and new not in data:
         raise ValueError('Upstream zlib dispatcher configuration changed')
     p.write_text(data.replace(old, new))
+    # The Linux ARM JPEG dispatcher uses ELF TLS for simd_support. Its
+    # initialization crashes on Horizon before any JPEG pixels are decoded.
+    # Use libjpeg-turbo's supported scalar dispatcher; the codec remains real.
+    p = skia / 'third_party/libjpeg-turbo/BUILD.gn'
+    data = p.read_text()
+    old = '    if (!is_win && (current_cpu == "arm" || current_cpu == "arm64")) {'
+    new = '    if (false) {  # WOG_SWITCH_PORTABLE_JPEG: select jsimd_none.c, no ARM TLS dispatcher'
+    if old not in data and new not in data:
+        raise ValueError('Upstream JPEG SIMD dispatcher configuration changed')
+    p.write_text(data.replace(old, new))
     # Match the existing SK_ONLY_GPU convention for newer GPU factories which
     # upstream forgot to guard in CPU-only builds. Raster implementations stay
     # intact; GPU creation correctly reports unavailable (null).
@@ -181,6 +191,17 @@ def main():
     subprocess.run([str(compiler / 'aarch64-none-elf-ar'), '-M'], input=mri, text=True, check=True)
     print('Merged target archives:', [p.name for p in archives], flush=True)
     symbols = subprocess.check_output([compiler / 'aarch64-none-elf-nm', '-g', '--defined-only', archive], text=True)
+    # Reject the exact initialization path found in the device crash, including
+    # accidentally retained cached SIMD objects in the merged archive.
+    if re.search(r'\b(?:init_simd|simd_support)\s*$', symbols, re.M):
+        raise ValueError('Unsupported JPEG TLS dispatcher remains in the archive')
+    all_symbols = subprocess.check_output([compiler / 'aarch64-none-elf-nm', '-A', archive], text=True)
+    if re.search(r'\b(?:init_simd|simd_support)\s*$', all_symbols, re.M):
+        raise ValueError('JPEG SIMD TLS local symbol remains in the archive')
+    scalar = subprocess.check_output([compiler / 'aarch64-none-elf-objdump', '-d', '--disassemble=jsimd_can_ycc_rgb', archive], text=True)
+    if '__aarch64_read_tp' in scalar or not re.search(r'\bret\b', scalar):
+        raise ValueError('JPEG scalar capability stub is not portable')
+    print('PASS JPEG portable dispatcher: jsimd_none selected; crashing ARM TLS initialization absent', flush=True)
     print('Archive bytes:', archive.stat().st_size, flush=True)
     exports = sorted(set(re.findall(r'\b[TW]\s+((?:sk_|gr_|skottie_|sksg_|skresources_)[A-Za-z0-9_]+)\s*$', symbols, re.M)))
     for required in ['sk_version_get_milestone', 'sk_bitmap_new', 'sk_canvas_draw_simple_text',
@@ -212,7 +233,8 @@ def main():
                 'compiler': subprocess.check_output([compiler / 'aarch64-none-elf-g++', '--version'], text=True).splitlines()[0],
                 'archive_bytes': archive.stat().st_size,
                 'archive_sha256': hashlib.sha256(archive.read_bytes()).hexdigest(),
-                'exports': len(exports), 'hardware_tested': False}
+                'jpeg_dispatcher': 'jsimd_none; ARM SIMD TLS dispatcher disabled for Horizon',
+                'jpeg_crash_path_removed': True, 'exports': len(exports), 'hardware_tested': False}
     (output / 'build-info.json').write_text(json.dumps(manifest, indent=2) + '\n')
     print('Built real Switch SkiaSharp archive:', archive.stat().st_size, 'bytes;', len(exports), 'C exports')
 

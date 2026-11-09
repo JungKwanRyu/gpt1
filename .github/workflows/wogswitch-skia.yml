@@ -3,6 +3,7 @@ on:
   push:
     branches:
       - codex/wogswitch-skia
+      - codex/wogswitch-runtime-fix
     paths:
       - tools/build_skia_native.py
       - .github/workflows/wogswitch-skia.yml
