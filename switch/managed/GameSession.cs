@@ -11,7 +11,7 @@ internal static class GameSession
         string report = Path.Combine(settings.Root, "game-start.txt");
         // Persist before entering the game and before calling native logging.
         // A native abort cannot execute our managed finally block.
-        File.WriteAllLines(report, new[] { "WogSwitch 0.5.8 game startup", "Main invoked: no", "Frames observed at start: 0" });
+        File.WriteAllLines(report, new[] { "WogSwitch 0.5.9 game startup", "Main invoked: no", "Frames observed at start: 0" });
         void Record(string line) { File.AppendAllText(report, line + "\n"); log(line); }
         Record("STEP game session entered; journal persisted before Main");
         object? oldBase = AppContext.GetData("APP_CONTEXT_BASE_DIRECTORY");
@@ -36,6 +36,7 @@ internal static class GameSession
                 throw new DirectoryNotFoundException("Copy the PC release assets folder (including characters and originals.txt) into release/assets before starting.");
             Directory.CreateDirectory(settings.SaveDir);
             PlatformGameBridge.BeginAssetReport();
+            FrameProfiler.Reset(settings.Root, log);
             Environment.SetEnvironmentVariable("DUELDX_SAVEDIR", settings.SaveDir);
             Environment.SetEnvironmentVariable("WAROFGENESIS_ORIGINAL", settings.Part2Present ? settings.OriginalPart2 : null);
             Environment.SetEnvironmentVariable("WAROFGENESIS_PART1", settings.Part1Present ? settings.OriginalPart1 : null);
@@ -71,6 +72,7 @@ internal static class GameSession
         }
         finally
         {
+            FrameProfiler.Flush();
             Record("Game frames presented: " + (presentedFrames?.Invoke() ?? 0));
             AppContext.SetData("APP_CONTEXT_BASE_DIRECTORY", oldBase);
             foreach (var variable in previous) Environment.SetEnvironmentVariable(variable.Key, variable.Value);

@@ -28,7 +28,7 @@ def main():
     parser.add_argument('--output', type=Path, default=ROOT / 'build/switch-probe')
     parser.add_argument('--managed', type=Path, help='Overlay published managed checkpoint DLLs')
     parser.add_argument('--skia', type=Path, help='Verified native SkiaSharp archive/resolver directory for checkpoint 0.3')
-    parser.add_argument('--checkpoint-version', choices=['0.4.0', '0.5.0', '0.5.1', '0.5.2', '0.5.3', '0.5.4', '0.5.5', '0.5.6', '0.5.7', '0.5.8'], help='Build the game patch/load or startup checkpoint')
+    parser.add_argument('--checkpoint-version', choices=['0.4.0', '0.5.0', '0.5.1', '0.5.2', '0.5.3', '0.5.4', '0.5.5', '0.5.6', '0.5.7', '0.5.8', '0.5.9'], help='Build the game patch/load or startup checkpoint')
     args = parser.parse_args()
     version = '0.3.0' if args.skia else ('0.2.0' if args.managed else '0.1.0')
     if args.checkpoint_version:
@@ -84,7 +84,7 @@ def main():
         flags += ['-I' + str(sdk / 'sdk/mesa/include'), '-I' + str(devkit / 'portlibs/switch/include')]
     if args.skia:
         flags += ['-DWOG_HAS_SKIA=1']
-    if version in ['0.4.0', '0.5.0', '0.5.1', '0.5.2', '0.5.3', '0.5.4', '0.5.5', '0.5.6', '0.5.7', '0.5.8']:
+    if version in ['0.4.0', '0.5.0', '0.5.1', '0.5.2', '0.5.3', '0.5.4', '0.5.5', '0.5.6', '0.5.7', '0.5.8', '0.5.9']:
         flags += ['-DWOG_GAME_LOADER=1', '-DWOG_CHECKPOINT_VERSION="' + version + '"']
     sources = [ROOT / ('switch/runtime/main.c' if args.managed else 'switch/probe/main.c')] + [shared / f for f in [
         'core.c', 'heap.c', 'io_util.c', 'io_shims.c', 'dl_shim.c',
@@ -92,7 +92,7 @@ def main():
     if args.skia:
         sources += [args.skia / 'skia_exports.c']
     if args.managed:
-        sources += [ROOT / 'switch/runtime/audio.c', ROOT / 'switch/runtime/audio_pcm.c']
+        sources += [ROOT / 'switch/runtime/audio.c', ROOT / 'switch/runtime/audio_pcm.c', ROOT / 'switch/runtime/raster.c']
     object_files = []
     for i, source in enumerate(sources):
         obj = objects / f'{i}-{source.stem}.o'
@@ -140,7 +140,7 @@ def main():
         shutil.copytree(args.managed / 'assets', app / 'assets')
         shutil.copytree(args.skia / 'licenses', app / 'licenses/native-skia')
         shutil.copy2(args.skia / 'build-info.json', app / 'native-skia-build-info.json')
-    if version in ['0.4.0', '0.5.0', '0.5.1', '0.5.2', '0.5.3', '0.5.4', '0.5.5', '0.5.6', '0.5.7', '0.5.8']:
+    if version in ['0.4.0', '0.5.0', '0.5.1', '0.5.2', '0.5.3', '0.5.4', '0.5.5', '0.5.6', '0.5.7', '0.5.8', '0.5.9']:
         shutil.copy2(ROOT / 'switch/launcher.ini', app / ('launcher.ini' if version == '0.4.0' else 'launcher.ini.example'))
     shutil.copy2(sdk / 'runtime/mono/etc/icudt77l.dat', app)
     shutil.copy2(ROOT / 'switch/probe/probe.ini', app)
@@ -158,14 +158,14 @@ def main():
             manifests.append({'file': str(file.relative_to(output / 'sd')),
                               'bytes': file.stat().st_size,
                               'sha256': hashlib.sha256(file.read_bytes()).hexdigest()})
-    report = {'purpose': ('Switch platform patches and optional real game startup; no gameplay verified' if version in ['0.5.0', '0.5.1', '0.5.2', '0.5.3', '0.5.4', '0.5.5', '0.5.6', '0.5.7', '0.5.8'] else
+    report = {'purpose': ('Switch platform patches and optional real game startup; no gameplay verified' if version in ['0.5.0', '0.5.1', '0.5.2', '0.5.3', '0.5.4', '0.5.5', '0.5.6', '0.5.7', '0.5.8', '0.5.9'] else
                          'Real game DLL patch/load validation; Main is not invoked' if version == '0.4.0' else
                          'Native SkiaSharp image/Korean rendering checkpoint; not a game launcher' if args.skia else
                          'Managed Wog methods and EGL/input checkpoint; not a game launcher' if args.managed
                           else 'Mono interpreter and .NET 10 Wog DLL metadata probe; not a game launcher'),
               'version': version,
               'game_execution_supported': False,
-              'optional_game_main_invocation': version in ['0.5.0', '0.5.1', '0.5.2', '0.5.3', '0.5.4', '0.5.5', '0.5.6', '0.5.7', '0.5.8'],
+              'optional_game_main_invocation': version in ['0.5.0', '0.5.1', '0.5.2', '0.5.3', '0.5.4', '0.5.5', '0.5.6', '0.5.7', '0.5.8', '0.5.9'],
               'hardware_tested': False, 'managed_execution_tested': False,
               'compiler': subprocess.check_output([cc, '--version'], text=True).splitlines()[0],
               'nroforge_commit': subprocess.check_output(['git', '-C', forge, 'rev-parse', 'HEAD'], text=True).strip(),

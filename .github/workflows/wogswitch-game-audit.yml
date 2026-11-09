@@ -13,6 +13,7 @@ on:
       - tools/prepare_game_files.py
       - tools/test_runtime_stdio.py
       - tools/test_native_audio.py
+      - tools/test_native_raster.py
       - tools/test_pc_preparation.py
       - switch/runtime/**
       - switch/managed/**
@@ -82,11 +83,15 @@ jobs:
         run: python3 tools/test_native_audio.py --output output/game-audit | tee native-audio-smoke.log
       - name: Build the actual host for Switch BCL API inspection
         run: dotnet publish switch/managed/WogSwitch.Managed.csproj -c Release -o work/managed-api-audit
+      - name: Compare native raster clipping and opaque alpha under UBSan
+        run: python3 tools/test_native_raster.py | tee native-raster-smoke.log
+      - name: Build the actual native backdrop kernel for managed/native pixel equivalence
+        run: gcc -shared -fPIC -O2 switch/runtime/raster.c -o work/libWogRaster.so
       - name: Build the Horizon overwrite-rename behavior test
         run: gcc -shared -fPIC -O2 tools/game-audit/libnx_rename_semantics.c -ldl -o work/libnx-rename-semantics.so
       - name: Patch and load the real PC DLLs without entering the game
         shell: bash
-        run: LD_PRELOAD="$PWD/work/libnx-rename-semantics.so" WOG_TEST_LIBNX_RENAME=1 dotnet run --project tools/game-audit/GameAudit.csproj -c Release -- work/prepared-game/release output/game-audit | tee game-audit.log
+        run: WOG_RASTER_TEST_LIB="$PWD/work/libWogRaster.so" LD_PRELOAD="$PWD/work/libnx-rename-semantics.so" WOG_TEST_LIBNX_RENAME=1 dotnet run --project tools/game-audit/GameAudit.csproj -c Release -- work/prepared-game/release output/game-audit | tee game-audit.log
       - name: Execute shader and actual patched inline-array layout on .NET 9
         shell: bash
         run: dotnet run --project tools/sdk9-smoke/Sdk9Smoke.csproj -c Release -- output/game-audit switch/managed/lib/WogShim.dll | tee sdk9-execution-smoke.log
@@ -102,6 +107,7 @@ jobs:
             sdk9-execution-smoke.log
             native-stdio-smoke.log
             native-audio-smoke.log
+            native-raster-smoke.log
             pc-preparation-smoke.log
             output/pc-preparation/*.log
             output/game-audit/*.wav

@@ -18,13 +18,14 @@ internal static class Program
     {
         bool prepareSd = args.Length == 2 && args[0] == "--prepare-sd";
         desktop = prepareSd || args.Contains("--desktop-smoke");
+        SwitchRaster.UseNative = !desktop;
         try
         {
             // This supported runtime switch avoids resource-manager lookups
             // when the embedded runtime formats its own error messages.
             AppContext.SetSwitch("System.Resources.UseSystemResourceKeys", true);
             if (prepareSd) return DesktopPreparation.Run(args[1], Log);
-            Log("Managed checkpoint 0.5.8: SDK9 shader blob and existing Unicode character paths");
+            Log("Managed checkpoint 0.5.9: portable JPEG, native backdrops and frame timings");
             string root = desktop ? Path.GetTempPath() : "/switch/WogSwitchProbe";
             var layout = new GameLayout(Path.Combine(root, "release"), Path.Combine(root, "patched"),
                 Path.Combine(root, "save"), null, Path.Combine(root, "managed/WogShim.dll"));
@@ -38,6 +39,7 @@ internal static class Program
             Require(ReferenceEquals(Host.Current, host), "Host.Use / Host.Current");
             Log("PASS WogShim method execution: Host.Use and Host.Current");
 
+            JpegSmoke.Verify(Log);
             string shimPath = Path.Combine(AppContext.BaseDirectory, "WogShim.dll");
             using (AssemblyDefinition assembly = AssemblyDefinition.ReadAssembly(shimPath))
                 Require(assembly.Name.Name == "WogShim", "Mono.Cecil original DLL inspection");

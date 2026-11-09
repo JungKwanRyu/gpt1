@@ -11,6 +11,7 @@
 #include <reent.h>
 #include <sys/iosupport.h>
 #include "audio.h"
+#include "raster.h"
 
 #ifndef WOG_CHECKPOINT_VERSION
 #define WOG_CHECKPOINT_VERSION "0.3.0"
@@ -404,7 +405,7 @@ static void *bridge_symbol(void *handle, const char *name, char **err, void *use
     EXPORT(wog_upload_bitmap); EXPORT(wog_draw_bitmap);
     EXPORT(wog_dialog_begin); EXPORT(wog_dialog_end);
     EXPORT(wog_audio_open); EXPORT(wog_audio_write); EXPORT(wog_audio_played);
-    EXPORT(wog_audio_flush); EXPORT(wog_audio_close);
+    EXPORT(wog_audio_flush); EXPORT(wog_audio_close); EXPORT(wog_blit_opaque);
 #undef EXPORT
     stage("FAIL unknown bridge export: %s", name);
     return NULL;

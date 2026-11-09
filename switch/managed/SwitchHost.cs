@@ -31,6 +31,7 @@ internal sealed class SwitchHost(bool desktop) : IHost
     public void SwapBuffers()
     {
         if (Native.wog_swap() == 0) throw new InvalidOperationException("Game buffer presentation failed");
+        if (gameActive) FrameProfiler.Presented();
         if (gameActive && ++Frames == 1) Program.Log("PASS GAME HOST FRAME PRESENTED (frame content and gameplay unverified)");
     }
 
@@ -43,7 +44,9 @@ internal sealed class SwitchHost(bool desktop) : IHost
         }
         while (requests.TryDequeue(out var request))
             if (!request.Done.Task.IsCompleted) request.Done.TrySetResult(ShowDialog(request.Caption, request.Text, request.Buttons));
-        GameHooks.Refresh(); GameState.Refresh();
+        FrameProfiler.Begin(3);
+        try { GameHooks.Refresh(); GameState.Refresh(); }
+        finally { FrameProfiler.End(3); }
     }
 
     public void ShowMessage(string caption, string text) => Ask(caption, text, new[] { "확인" });
