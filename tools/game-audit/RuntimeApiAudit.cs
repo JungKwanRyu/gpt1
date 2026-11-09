@@ -33,6 +33,14 @@ internal static class RuntimeApiAudit
             var problems = new HashSet<string>();
             bool owned = input.Name is not ("patcher" or "shim");
             int routed = 0;
+            foreach (var reference in assembly.MainModule.GetTypeReferences())
+            {
+                TypeReference top = reference;
+                while (top.DeclaringType != null) top = top.DeclaringType;
+                if (top.Scope is not AssemblyNameReference typeScope || !typeScope.Name.StartsWith("System.")) continue;
+                try { if (reference.Resolve() == null) problems.Add("Unresolved type: " + reference.FullName); }
+                catch (Exception ex) { problems.Add("Unresolved type: " + reference.FullName + " [" + ex.GetType().Name + "]"); }
+            }
             foreach (var type in assembly.MainModule.GetTypes())
                 foreach (var method in type.Methods.Where(m => m.HasBody))
                 {
@@ -64,6 +72,6 @@ internal static class RuntimeApiAudit
             foreach (string problem in problems) Console.WriteLine("SDK9 API: " + problem);
             total += problems.Count;
         }
-        if (total != 0) throw new InvalidDataException("SDK9 API inspection found unresolved calls: " + total);
+        if (total != 0) throw new InvalidDataException("SDK9 API inspection found unresolved types or calls: " + total);
     }
 }

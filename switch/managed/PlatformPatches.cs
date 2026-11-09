@@ -5,7 +5,7 @@ namespace WogSwitch;
 
 internal static class PlatformPatches
 {
-    internal const string Version = "switch-platform-0.5.7-v1";
+    internal const string Version = "switch-platform-0.5.8-v1";
 
     internal static void Apply(string directory, Action<string> log)
     {
@@ -157,6 +157,14 @@ internal static class PlatformPatches
                 if (file.Name == "Exists") instruction.Operand = Import(module, nameof(PlatformGameBridge.PreparedAssetExists));
                 else if (file.Name == "Delete") instruction.Operand = Import(module, nameof(PlatformGameBridge.DeletePreparedAsset));
             }
+        var find = module.GetType("WarOfGenesis.Assets.AssetsFolder").Methods.Single(m => m.Name == "Find");
+        var findIl = find.Body.GetILProcessor();
+        foreach (var ret in find.Body.Instructions.Where(i => i.OpCode == OpCodes.Ret).ToArray())
+        {
+            ret.OpCode = OpCodes.Call;
+            ret.Operand = Import(module, nameof(PlatformGameBridge.ResolveAssetPath));
+            findIl.InsertAfter(ret, findIl.Create(OpCodes.Ret));
+        }
         var core = type.Methods.Single(m => m.Name == "Extract");
         if (!core.IsStatic || core.Parameters.Count != 4 || core.ReturnType.MetadataType != MetadataType.Boolean ||
             core.Parameters[1].ParameterType.MetadataType != MetadataType.String || core.Parameters[2].ParameterType.MetadataType != MetadataType.String)
@@ -183,6 +191,9 @@ internal static class PlatformPatches
         wrapper.Body.InitLocals = true;
         wrapper.Body.Variables.Add(new VariableDefinition(module.TypeSystem.Boolean));
         il = wrapper.Body.GetILProcessor();
+        il.Emit(OpCodes.Ldarg_2);
+        il.Emit(OpCodes.Call, Import(module, nameof(PlatformGameBridge.ResolveAssetPath)));
+        il.Emit(OpCodes.Starg, wrapper.Parameters[2]);
         foreach (var parameter in wrapper.Parameters) il.Emit(OpCodes.Ldarg, parameter);
         il.Emit(OpCodes.Call, core); il.Emit(OpCodes.Stloc_0);
         var done = il.Create(OpCodes.Ldloc_0);

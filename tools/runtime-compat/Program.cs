@@ -6,6 +6,40 @@ using Mono.Cecil.Cil;
 if (args.Length != 2) throw new ArgumentException("Usage: RuntimeCompat WogPatcher.dll report.json");
 string path = Path.GetFullPath(args[0]);
 string before = Convert.ToHexString(SHA256.HashData(File.ReadAllBytes(path))).ToLowerInvariant();
+// The pinned shim uses the .NET 10 BCL InlineArray5<string> in HlslBlob.Pack.
+// Emit the same five NUL-separated fields using the long-standing array Join
+// overload. No custom inline-array layout or .NET 10 type is needed on Mono9.
+string shimPath = Path.Combine(Path.GetDirectoryName(path)!, "WogShim.dll");
+string shimBefore = Convert.ToHexString(SHA256.HashData(File.ReadAllBytes(shimPath))).ToLowerInvariant();
+using (var shim = AssemblyDefinition.ReadAssembly(shimPath, new ReaderParameters { InMemory = true }))
+{
+    var module = shim.MainModule;
+    var pack = module.GetType("WogShim.Gpu.HlslBlob").Methods.Single(m => m.Name == "Pack");
+    if (!pack.IsStatic || pack.Parameters.Count != 4 || pack.Parameters.Any(p => p.ParameterType.FullName != "System.String") ||
+        pack.ReturnType.FullName != "System.Byte[]" ||
+        pack.Body.Variables.Count != 1 || !pack.Body.Variables[0].VariableType.FullName.Contains("System.Runtime.CompilerServices.InlineArray5`1") ||
+        pack.Body.Instructions.Count(i => i.OpCode == OpCodes.Ldstr && Equals(i.Operand, "WOGHLSL")) != 1)
+        throw new InvalidDataException("Unexpected pinned HlslBlob.Pack layout");
+    var utf8 = (MethodReference)pack.Body.Instructions.First().Operand;
+    var bytes = (MethodReference)pack.Body.Instructions.Last(i => i.OpCode == OpCodes.Callvirt).Operand;
+    pack.Body = new Mono.Cecil.Cil.MethodBody(pack) { MaxStackSize = 7 };
+    var il = pack.Body.GetILProcessor();
+    il.Emit(OpCodes.Call, utf8);
+    il.Emit(OpCodes.Ldstr, "\0");
+    il.Emit(OpCodes.Ldc_I4_5); il.Emit(OpCodes.Newarr, module.TypeSystem.String);
+    for (int i = 0; i < 5; i++)
+    {
+        il.Emit(OpCodes.Dup); il.Emit(OpCodes.Ldc_I4, i);
+        if (i == 0) il.Emit(OpCodes.Ldstr, "WOGHLSL");
+        else il.Emit(OpCodes.Ldarg, pack.Parameters[new[] { 3, 1, 2, 0 }[i - 1]]);
+        il.Emit(OpCodes.Stelem_Ref);
+    }
+    il.Emit(OpCodes.Call, module.ImportReference(typeof(string).GetMethod("Join", new[] { typeof(string), typeof(string[]) })!));
+    il.Emit(OpCodes.Callvirt, bytes); il.Emit(OpCodes.Ret);
+    shim.Write(shimPath + ".net9-compatible");
+}
+File.Move(shimPath + ".net9-compatible", shimPath, true);
+string shimAfter = Convert.ToHexString(SHA256.HashData(File.ReadAllBytes(shimPath))).ToLowerInvariant();
 int changed = 0;
 var progressMethods = new List<string>();
 using (var assembly = AssemblyDefinition.ReadAssembly(path, new ReaderParameters { InMemory = true }))
@@ -61,7 +95,9 @@ File.Move(path + ".net9-compatible", path, true);
 string after = Convert.ToHexString(SHA256.HashData(File.ReadAllBytes(path))).ToLowerInvariant();
 var report = new { input = Path.GetFileName(path), original_sha256 = before, adapted_sha256 = after,
     reverse_array_calls_adapted = changed, progress_methods = progressMethods,
-    change = "SDK9 Reverse signature plus major patch phases through WogShim.Host.Log" };
+    shim_original_sha256 = shimBefore, shim_adapted_sha256 = shimAfter,
+    shader_blob = "HlslBlob.Pack: same UTF8 NUL-separated WOGHLSL/name/entry/profile/source fields using String.Join(string,string[]) instead of BCL10 InlineArray5",
+    change = "SDK9 shader blob, Reverse signature and major patch phases through WogShim.Host.Log" };
 Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(args[1]))!);
 File.WriteAllText(args[1], JsonSerializer.Serialize(report, new JsonSerializerOptions { WriteIndented = true }) + "\n");
 Console.WriteLine("PASS SDK9 compatibility adaptation: " + changed + " array Reverse call; original=" + before + "; adapted=" + after);

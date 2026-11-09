@@ -16,6 +16,7 @@ WogShim.Host.LogSink = line => {
 RenameSemanticsSmoke.Run(output);
 PortableFilesSmoke.Run(output);
 RuntimeApiAudit.Run(output);
+ShaderBlobSmoke.Run();
 DiagnosticsSmoke.Run();
 AudioSinkSmoke.Run();
 PerformanceSmoke.Logging();
