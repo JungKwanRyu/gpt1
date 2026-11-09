@@ -10,8 +10,8 @@ internal static class RasterSmoke
         const BindingFlags flags = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
         var type = game.GetType("DuelDx.GameWindow", true)!;
         var window = RuntimeHelpers.GetUninitializedObject(type);
-        type.GetProperty("Cols", flags)!.SetValue(window, 24);
-        type.GetProperty("Rows", flags)!.SetValue(window, 34);
+        type.GetField("Cols", flags)!.SetValue(window, 24);
+        type.GetField("Rows", flags)!.SetValue(window, 34);
         int width = (int)type.GetProperty("BoardWidth", flags)!.GetValue(window)!;
         int height = (int)type.GetProperty("BoardHeight", flags)!.GetValue(window)!;
         var fb = new uint[width * height];
