@@ -86,7 +86,7 @@ jobs:
       - name: Compare native raster clipping and opaque alpha under UBSan
         run: python3 tools/test_native_raster.py | tee native-raster-smoke.log
       - name: Build the actual native backdrop kernel for managed/native pixel equivalence
-        run: gcc -shared -fPIC -O2 switch/runtime/raster.c -o work/libWogRaster.so
+        run: gcc -shared -fPIC -O2 -fsanitize=undefined -fno-sanitize-recover=all switch/runtime/raster.c -o work/libWogRaster.so
       - name: Build the Horizon overwrite-rename behavior test
         run: gcc -shared -fPIC -O2 tools/game-audit/libnx_rename_semantics.c -ldl -o work/libnx-rename-semantics.so
       - name: Patch and load the real PC DLLs without entering the game

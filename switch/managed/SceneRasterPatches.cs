@@ -24,7 +24,7 @@ internal static class SceneRasterPatches
 
         // Limit replacement to the verified opaque 640x480 backdrop loop.
         // Keep each screen's clearing, animation, menus and text unchanged.
-        foreach (var target in new[] { ("DuelDx.TitleScreen", "DrawTitle"), ("DuelDx.EpisodesScreen", "DrawEpisodes") })
+        foreach (var target in new[] { ("DuelDx.TitleScreen", "DrawTitle"), ("DuelDx.EpisodesScreen", "DrawEpisodes"), ("DuelDx.Part1TitleScreen", "Draw") })
         {
             var type = module.GetType(target.Item1);
             var draw = type.Methods.Single(m => m.Name == target.Item2);

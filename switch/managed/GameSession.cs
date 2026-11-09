@@ -11,7 +11,7 @@ internal static class GameSession
         string report = Path.Combine(settings.Root, "game-start.txt");
         // Persist before entering the game and before calling native logging.
         // A native abort cannot execute our managed finally block.
-        File.WriteAllLines(report, new[] { "WogSwitch 0.5.9 game startup", "Main invoked: no", "Frames observed at start: 0" });
+        File.WriteAllLines(report, new[] { "WogSwitch 0.5.10 game startup", "Main invoked: no", "Frames observed at start: 0" });
         void Record(string line) { File.AppendAllText(report, line + "\n"); log(line); }
         Record("STEP game session entered; journal persisted before Main");
         object? oldBase = AppContext.GetData("APP_CONTEXT_BASE_DIRECTORY");

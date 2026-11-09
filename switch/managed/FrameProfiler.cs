@@ -16,14 +16,25 @@ public static class FrameProfiler
         Array.Clear(starts); Array.Clear(ticks); Array.Clear(counts);
         warmup = true; frames = lastFrame = maxInterval = 0; since = Stopwatch.GetTimestamp();
         logger = log; report = Path.Combine(root, "performance.log");
-        File.WriteAllText(report, "WogSwitch 0.5.9 frame wall times; draw includes swap; not GPU-only time\n");
+        File.WriteAllText(report, "WogSwitch 0.5.10 frame wall times; draw includes swap; not GPU-only time; gaps over 60s recorded separately\n");
     }
 
-    public static void Begin(int phase) => starts[phase] = Stopwatch.GetTimestamp();
-    public static void End(int phase)
+    public static void Begin(int phase) => BeginAt(phase, Stopwatch.GetTimestamp());
+    internal static void BeginAt(int phase, long now) => starts[phase] = now;
+    public static void End(int phase) => EndAt(phase, Stopwatch.GetTimestamp());
+    internal static void EndAt(int phase, long now)
     {
-        long now = Stopwatch.GetTimestamp();
-        ticks[phase] += now - starts[phase]; counts[phase]++;
+        long duration = now - starts[phase];
+        if (duration > Stopwatch.Frequency * 60)
+        {
+            string line = "PERF LONG_GAP phase=" + names[phase] + " seconds=" +
+                (duration / (double)Stopwatch.Frequency).ToString("F1", System.Globalization.CultureInfo.InvariantCulture) +
+                "; suspend or long stall; interval excluded from regular FPS";
+            try { File.AppendAllText(report!, line + "\n"); logger?.Invoke(line); } catch { }
+            Array.Clear(ticks); Array.Clear(counts); frames = lastFrame = maxInterval = 0; since = now; warmup = true;
+            return;
+        }
+        ticks[phase] += duration; counts[phase]++;
         if (phase == 2 && warmup && lastFrame != 0)
         {
             // Original-data loading and the first shader/font warmup are not

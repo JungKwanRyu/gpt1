@@ -20,6 +20,7 @@
     <Compile Include="../../switch/managed/SceneRasterPatches.cs" Link="SceneRasterPatches.cs" />
     <Compile Include="../../switch/managed/SwitchRaster.cs" Link="SwitchRaster.cs" />
     <Compile Include="../../switch/managed/FrameProfiler.cs" Link="FrameProfiler.cs" />
+    <Compile Include="../../switch/managed/SharedRasterPatches.cs" Link="SharedRasterPatches.cs" />
     <Reference Include="WogPatcher"><HintPath>../../switch/managed/lib/WogPatcher.dll</HintPath></Reference>
     <Reference Include="WogShim"><HintPath>../../switch/managed/lib/WogShim.dll</HintPath></Reference>
     <PackageReference Include="Mono.Cecil" Version="0.11.6" />
