@@ -15,6 +15,8 @@
     <Compile Include="../../switch/managed/Diagnostics.cs" Link="Diagnostics.cs" />
     <Compile Include="../../switch/managed/PortableFiles.cs" Link="PortableFiles.cs" />
     <Compile Include="../../switch/managed/SwitchAudioSink.cs" Link="SwitchAudioSink.cs" />
+    <Compile Include="../../switch/managed/PatchValidation.cs" Link="PatchValidation.cs" />
+    <Compile Include="../../switch/managed/ProgressLogLimiter.cs" Link="ProgressLogLimiter.cs" />
     <Reference Include="WogPatcher"><HintPath>../../switch/managed/lib/WogPatcher.dll</HintPath></Reference>
     <Reference Include="WogShim"><HintPath>../../switch/managed/lib/WogShim.dll</HintPath></Reference>
     <PackageReference Include="Mono.Cecil" Version="0.11.6" />

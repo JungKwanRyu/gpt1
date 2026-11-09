@@ -25,11 +25,17 @@ internal static class StartupSmoke
         }
         Console.WriteLine("PASS no direct native imports remain in the two patched game DLLs");
         bool journalObservedBeforeMain = false;
+        bool reused = false, repeatedInspection = false;
+        var preloaded = GameLoader.Load(GameLoader.Prepare(settings, Console.WriteLine), Console.WriteLine);
         int code = GameSession.Start(settings, line => {
+            if (line.StartsWith("REUSE already loaded")) reused = true;
+            if (line.StartsWith("STEP inspect original DLL")) repeatedInspection = true;
             if (line.StartsWith("Main invoked: yes"))
                 journalObservedBeforeMain = File.ReadAllText(Path.Combine(root, "game-start.txt")).Contains(line);
             Console.WriteLine(line);
-        });
+        }, preloaded: preloaded);
+        if (!reused || repeatedInspection) throw new InvalidDataException("X startup repeated preparation instead of reusing the validated load");
+        Console.WriteLine("PASS startup reuses already loaded DLLs while rechecking original hashes");
         if (!journalObservedBeforeMain) throw new InvalidDataException("Main marker was not written before invoking native logging/game code");
         Console.WriteLine("PASS game-start journal persisted before Main invocation and before logging callbacks");
         if (code != 0 || host.AskCount == 0 || host.GraphicsCalls != 0)
@@ -51,6 +57,7 @@ internal static class StartupSmoke
         try { PlatformGameBridge.Exit(7); } catch (GameExitException ex) when (ex.ExitCode == 7) { Console.WriteLine("PASS controlled game exit preserves the host process"); }
         RealMixerSmoke.Run();
         AssetDiagnosticsSmoke.Run(root, output, settings);
+        PerformanceSmoke.Snapshot(settings);
         PlatformGameBridge.Crash(new InvalidOperationException("SYNTHETIC_REPORTED_FAILURE"));
         if (PlatformGameBridge.ReportedCrash?.Message != "SYNTHETIC_REPORTED_FAILURE" ||
             !File.ReadAllText(Path.Combine(root, "game-start.txt")).Contains("SYNTHETIC_REPORTED_FAILURE"))

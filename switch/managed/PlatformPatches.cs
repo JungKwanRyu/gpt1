@@ -5,7 +5,7 @@ namespace WogSwitch;
 
 internal static class PlatformPatches
 {
-    internal const string Version = "switch-platform-0.5.6-v1";
+    internal const string Version = "switch-platform-0.5.7-v1";
 
     internal static void Apply(string directory, Action<string> log)
     {
@@ -148,6 +148,15 @@ internal static class PlatformPatches
     private static void AddAssetDiagnostics(ModuleDefinition module)
     {
         var type = module.GetType("WarOfGenesis.Assets.OriginalAssets") ?? throw new InvalidDataException("OriginalAssets type changed");
+        var prepare = type.Methods.Single(m => m.Name == "Prepare");
+        prepare.Body.GetILProcessor().InsertBefore(prepare.Body.Instructions[0],
+            Instruction.Create(OpCodes.Call, Import(module, nameof(PlatformGameBridge.BeginAssetPreparation))));
+        foreach (var instruction in prepare.Body.Instructions)
+            if (instruction.OpCode == OpCodes.Call && instruction.Operand is MethodReference file && file.DeclaringType.FullName == "System.IO.File")
+            {
+                if (file.Name == "Exists") instruction.Operand = Import(module, nameof(PlatformGameBridge.PreparedAssetExists));
+                else if (file.Name == "Delete") instruction.Operand = Import(module, nameof(PlatformGameBridge.DeletePreparedAsset));
+            }
         var core = type.Methods.Single(m => m.Name == "Extract");
         if (!core.IsStatic || core.Parameters.Count != 4 || core.ReturnType.MetadataType != MetadataType.Boolean ||
             core.Parameters[1].ParameterType.MetadataType != MetadataType.String || core.Parameters[2].ParameterType.MetadataType != MetadataType.String)
@@ -177,8 +186,12 @@ internal static class PlatformPatches
         foreach (var parameter in wrapper.Parameters) il.Emit(OpCodes.Ldarg, parameter);
         il.Emit(OpCodes.Call, core); il.Emit(OpCodes.Stloc_0);
         var done = il.Create(OpCodes.Ldloc_0);
-        il.Emit(OpCodes.Ldloc_0); il.Emit(OpCodes.Brtrue, done);
-        il.Emit(OpCodes.Ldarg_1); il.Emit(OpCodes.Ldarg_2);
+        var unavailable = il.Create(OpCodes.Ldarg_1);
+        il.Emit(OpCodes.Ldloc_0); il.Emit(OpCodes.Brfalse, unavailable);
+        il.Emit(OpCodes.Ldarg_2); il.Emit(OpCodes.Call, Import(module, nameof(PlatformGameBridge.RecordAssetAvailable)));
+        il.Emit(OpCodes.Br, done);
+        il.Append(unavailable);
+        il.Emit(OpCodes.Ldarg_2);
         il.Emit(OpCodes.Call, Import(module, nameof(PlatformGameBridge.RecordAssetUnavailable)));
         il.Append(done); il.Emit(OpCodes.Ret);
         foreach (var caller in callers) caller.Operand = wrapper;

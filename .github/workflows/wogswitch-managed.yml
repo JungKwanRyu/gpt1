@@ -65,7 +65,7 @@ jobs:
         run: dotnet output/managed/WogSwitch.Managed.dll --desktop-smoke | tee output/desktop-smoke.log
       - uses: actions/upload-artifact@v4
         with:
-          name: WogSwitch-managed-0.5.6
+          name: WogSwitch-managed-0.5.7
           path: |
             output/managed/*.dll
             output/managed/*.json
@@ -73,4 +73,29 @@ jobs:
             output/managed/assets/
             output/managed/render-desktop.png
             output/managed/render-dialog-desktop.png
+
+  pc-preparation-windows:
+    needs: managed
+    runs-on: windows-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+      - uses: actions/download-artifact@v4
+        with:
+          name: WogSwitch-managed-0.5.7
+          path: work/published
+      - name: Fetch and prepare the pinned public fixture
+        run: |
+          python tools/fetch_game_fixture.py
+          python tools/prepare_game_files.py --package work/game-fixture/game.nupkg --destination work/prepared-game/release
+      - name: Test the actual PC tool and moved SD cache on Windows
+        run: python tools/test_pc_preparation.py --host work/published/managed --fixture work/prepared-game/release --output output/pc-preparation-windows
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: WogSwitch-PC-preparation-Windows
+          path: output/pc-preparation-windows/*.log
 

@@ -6,12 +6,12 @@ namespace WogSwitch;
 
 internal static class GameSession
 {
-    internal static int Start(LauncherSettings settings, Action<string> log, Func<int>? presentedFrames = null)
+    internal static int Start(LauncherSettings settings, Action<string> log, Func<int>? presentedFrames = null, LoadedGame? preloaded = null)
     {
         string report = Path.Combine(settings.Root, "game-start.txt");
         // Persist before entering the game and before calling native logging.
         // A native abort cannot execute our managed finally block.
-        File.WriteAllLines(report, new[] { "WogSwitch 0.5.6 game startup", "Main invoked: no", "Frames observed at start: 0" });
+        File.WriteAllLines(report, new[] { "WogSwitch 0.5.7 game startup", "Main invoked: no", "Frames observed at start: 0" });
         void Record(string line) { File.AppendAllText(report, line + "\n"); log(line); }
         Record("STEP game session entered; journal persisted before Main");
         object? oldBase = AppContext.GetData("APP_CONTEXT_BASE_DIRECTORY");
@@ -20,9 +20,15 @@ internal static class GameSession
         try
         {
             Record("STEP prepare game for startup");
-            var prepared = GameLoader.Prepare(settings, Record);
-            if (prepared.Missing.Length != 0) throw new NotSupportedException("Game start blocked by unresolved patch items: " + prepared.Missing.Length);
-            var loaded = GameLoader.Load(prepared, Record);
+            LoadedGame loaded;
+            if (preloaded != null)
+            {
+                GameLoader.VerifySources(settings, preloaded.Prepared.SourceHashes);
+                loaded = preloaded;
+                Record("REUSE already loaded and verified game DLLs; source hashes rechecked");
+            }
+            else loaded = GameLoader.Load(GameLoader.Prepare(settings, Record), Record);
+            if (loaded.Missing != 0) throw new NotSupportedException("Game start blocked by unresolved patch items: " + loaded.Missing);
             PlatformGameBridge.Configure(settings);
             bool complete = File.Exists(Path.Combine(settings.GameAssets, "data/TXR/Txr.dat")) && Directory.Exists(Path.Combine(settings.GameAssets, "characters"));
             bool shipped = Directory.Exists(Path.Combine(settings.ReleaseDir, "assets/characters")) && File.Exists(Path.Combine(settings.ReleaseDir, "assets/originals.txt"));

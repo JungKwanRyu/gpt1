@@ -9,6 +9,10 @@ public static class PlatformGameBridge
     private static readonly object reportGate = new();
     private static readonly HashSet<string> assetIoErrors = new(StringComparer.OrdinalIgnoreCase);
     private static readonly HashSet<string> unavailableAssets = new(StringComparer.OrdinalIgnoreCase);
+    private static HashSet<string>? preparedAssetFiles;
+    private static bool assetSnapshotUnavailable;
+    internal static int AssetSnapshotCount { get; private set; }
+    internal static int AssetSnapshotChecks { get; private set; }
     internal static Exception? ReportedCrash { get; private set; }
     internal static Action<string>? Notice;
     internal static void Configure(LauncherSettings value) { settings = value; ReportedCrash = null; }
@@ -19,6 +23,8 @@ public static class PlatformGameBridge
         {
             assetIoErrors.Clear();
             unavailableAssets.Clear();
+            preparedAssetFiles = null; assetSnapshotUnavailable = false;
+            AssetSnapshotCount = AssetSnapshotChecks = 0;
             File.WriteAllText(Path.Combine(settings!.Root, "asset-report.txt"),
                 "Original asset diagnostics for this game session\nNOT_FOUND_OR_UNMAPPED = extraction returned false without an IO exception\nIO_ERROR = read or write raised an IO/access exception\n");
         }
@@ -53,6 +59,51 @@ public static class PlatformGameBridge
             }
         }
         catch { /* Diagnostics must preserve the original extraction behavior. */ }
+    }
+
+    public static bool PreparedAssetExists(string path)
+    {
+        var value = settings;
+        string full = Path.GetFullPath(LauncherSettings.NormalizeSdPath(path));
+        string root = value == null ? "" : Path.Combine(value.SaveDir, "assets");
+        if (value == null || !LauncherSettings.Contains(root, full)) return File.Exists(full);
+        lock (reportGate)
+        {
+            if (!assetSnapshotUnavailable && preparedAssetFiles == null)
+            {
+                try
+                {
+                    preparedAssetFiles = new HashSet<string>(Directory.EnumerateFiles(root, "*", SearchOption.AllDirectories), StringComparer.OrdinalIgnoreCase);
+                    AssetSnapshotCount++;
+                    Host.Log("ASSET CACHE snapshot: " + preparedAssetFiles.Count + " files; repeated per-file existence checks use memory");
+                }
+                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+                { assetSnapshotUnavailable = true; Host.Log("ASSET CACHE snapshot unavailable; using ordinary file checks"); }
+            }
+            if (preparedAssetFiles != null) { AssetSnapshotChecks++; return preparedAssetFiles.Contains(full); }
+        }
+        return File.Exists(full);
+    }
+
+    public static void BeginAssetPreparation()
+    {
+        lock (reportGate)
+        {
+            preparedAssetFiles = null; assetSnapshotUnavailable = false;
+            AssetSnapshotCount = AssetSnapshotChecks = 0;
+        }
+    }
+
+    public static void RecordAssetAvailable(string path)
+    {
+        lock (reportGate) preparedAssetFiles?.Add(Path.GetFullPath(LauncherSettings.NormalizeSdPath(path)));
+    }
+
+    public static void DeletePreparedAsset(string path)
+    {
+        CheckWritable(path);
+        File.Delete(path);
+        lock (reportGate) preparedAssetFiles?.Remove(Path.GetFullPath(LauncherSettings.NormalizeSdPath(path)));
     }
 
     public static void RecordAssetUnavailable(string asset, string destination)

@@ -9,7 +9,7 @@ namespace WogSwitch;
 
 internal sealed record PreparedGame(string Directory, string Version, bool CacheHit,
     string[] Missing, Dictionary<string, string> SourceHashes);
-internal sealed record LoadedGame(string Version, int Assemblies, string EntryPoint, int Missing, MethodInfo Main);
+internal sealed record LoadedGame(string Version, int Assemblies, string EntryPoint, int Missing, MethodInfo Main, PreparedGame Prepared);
 
 internal static class GameLoader
 {
@@ -75,18 +75,12 @@ internal static class GameLoader
             Diagnostics.Step("apply Switch platform patches", log);
             PlatformPatches.Apply(directory, line => { changes.Add(line); log(line); });
             File.WriteAllLines(Path.Combine(directory, "platform-patches.txt"), changes);
-            // Re-run the original public patcher/validator on the rewritten DLLs.
-            // Its report, rather than a filtered list of old warnings, is authoritative.
-            string verified = Path.Combine(directory, "verified");
+            // Run the original validator without repeating Retarget, RedirectCalls,
+            // RewritePInvokes, serialization and a second pair of DLL copies.
             Diagnostics.Step("verify Switch platform patches", log);
-            var finalReport = GamePatcher.Patch(directory, settings.ShimPath, verified);
+            var finalReport = PatchValidation.Verify(directory, settings.ShimPath, log);
             File.WriteAllText(Path.Combine(directory, "compatibility.txt"), finalReport.ToString());
             File.WriteAllLines(Path.Combine(directory, "missing.txt"), finalReport.Missing);
-            foreach (string name in GamePatcher.GameAssemblies)
-            {
-                Diagnostics.Step("commit verified DLL " + name, log);
-                PortableFiles.Copy(Path.Combine(verified, name), Path.Combine(directory, name), true);
-            }
             log("Post-platform-patch compatibility: " + finalReport.Missing.Count + " unresolved items");
             foreach (string name in GamePatcher.GameAssemblies)
             {
@@ -123,7 +117,7 @@ internal static class GameLoader
         catch (IOException) { return false; }
     }
 
-    private static void VerifySources(LauncherSettings settings, Dictionary<string, string> hashes)
+    internal static void VerifySources(LauncherSettings settings, Dictionary<string, string> hashes)
     {
         foreach (var item in hashes)
             if (Digest(Path.Combine(settings.ReleaseDir, item.Key)) != item.Value)
@@ -148,7 +142,7 @@ internal static class GameLoader
                 string path = Path.Combine(prepared.Directory, file);
                 var assembly = AssemblyLoadContext.Default.LoadFromAssemblyPath(path);
                 string location = Path.GetFullPath(LauncherSettings.NormalizeSdPath(assembly.Location));
-                if (!location.Equals(path, StringComparison.Ordinal))
+                if (!location.Equals(path, OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal))
                     throw new InvalidDataException("Game DLL was loaded from another folder; restart the app: " + assembly.Location);
                 if (assembly.GetName().Version?.ToString() != prepared.Version)
                     throw new InvalidDataException("Loaded game DLL version differs from the prepared version");
@@ -163,14 +157,14 @@ internal static class GameLoader
                 throw new MissingMethodException("Unsupported DuelDx.Program.Main signature");
             log("PASS patched game entry point lookup: " + main);
             log("LOAD CHECK COMPLETE; Main was not invoked; unresolved items=" + prepared.Missing.Length);
-            return new LoadedGame(prepared.Version, count, main.ToString()!, prepared.Missing.Length, main);
+            return new LoadedGame(prepared.Version, count, main.ToString()!, prepared.Missing.Length, main, prepared);
         }
         finally { AssemblyLoadContext.Default.Resolving -= Resolve; }
     }
 
-    internal static string[] Run(LauncherSettings settings, Action<string> log)
+    internal static string[] Run(LauncherSettings settings, Action<string> log, Action<LoadedGame>? loadedCallback = null)
     {
-        var report = new List<string> { "WogSwitch 0.5.6 game DLL patch/load check", "Load check status: in progress", "Main invoked: no",
+        var report = new List<string> { "WogSwitch 0.5.7 game DLL patch/load check", "Load check status: in progress", "Main invoked: no",
             "PC release: " + settings.ReleaseDir, "Part 2 folder detected: " + settings.Part2Present,
             "Part 1 folder detected: " + settings.Part1Present, "Game assets/characters detected: " +
                 System.IO.Directory.Exists(Path.Combine(settings.GameAssets, "characters")) };
@@ -181,6 +175,7 @@ internal static class GameLoader
             foreach (string line in report.ToArray()) log(line);
             var prepared = Prepare(settings, Record);
             var loaded = Load(prepared, Record);
+            loadedCallback?.Invoke(loaded);
             report[1] = "Load check status: complete";
             report.Add("Patch output: " + prepared.Directory);
             report.Add("Compatibility report follows:");

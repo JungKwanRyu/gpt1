@@ -12,16 +12,19 @@ internal static class Program
 {
     private static bool desktop;
     private static readonly System.Diagnostics.Stopwatch patchClock = System.Diagnostics.Stopwatch.StartNew();
+    private static readonly ProgressLogLimiter progressLog = new();
 
     public static int Main(string[] args)
     {
-        desktop = args.Contains("--desktop-smoke");
+        bool prepareSd = args.Length == 2 && args[0] == "--prepare-sd";
+        desktop = prepareSd || args.Contains("--desktop-smoke");
         try
         {
             // This supported runtime switch avoids resource-manager lookups
             // when the embedded runtime formats its own error messages.
             AppContext.SetSwitch("System.Resources.UseSystemResourceKeys", true);
-            Log("Managed checkpoint 0.5.6: native PCM audio and per-file asset diagnostics");
+            if (prepareSd) return DesktopPreparation.Run(args[1], Log);
+            Log("Managed checkpoint 0.5.7: faster verification, reused load and optional PC preparation");
             string root = desktop ? Path.GetTempPath() : "/switch/WogSwitchProbe";
             var layout = new GameLayout(Path.Combine(root, "release"), Path.Combine(root, "patched"),
                 Path.Combine(root, "save"), null, Path.Combine(root, "managed/WogShim.dll"));
@@ -60,6 +63,7 @@ internal static class Program
             string[] status;
             bool gameCheckFailed = false;
             LauncherSettings? launchSettings = null;
+            LoadedGame? preloadedGame = null;
             try
             {
                 Diagnostics.Step("read launcher settings", Log);
@@ -70,7 +74,7 @@ internal static class Program
                 if (settings.HasAnyGameDll)
                 {
                     Diagnostics.Step("prepare and load PC game", Log);
-                    status = GameLoader.Run(settings, Log);
+                    status = GameLoader.Run(settings, Log, loaded => preloadedGame = loaded);
                 }
                 else
                 {
@@ -123,7 +127,7 @@ internal static class Program
                         started = true;
                         host.BeginGame();
                         int code;
-                        try { code = GameSession.Start(launchSettings, Log, () => host.Frames); }
+                        try { code = GameSession.Start(launchSettings, Log, () => host.Frames, preloadedGame); }
                         finally { host.EndGame(); }
                         status = new[] { "게임 시작 시도 종료 — code " + code, "게임 호스트 출력 프레임 " + host.Frames,
                             "자세한 결과: game-start.txt", "다시 시도하려면 앱을 재실행해 주세요" };
@@ -165,6 +169,7 @@ internal static class Program
 
     internal static void Log(string line)
     {
+        if (!progressLog.Keep(line, patchClock.ElapsedMilliseconds)) return;
         if (line.StartsWith("PATCH ", StringComparison.Ordinal) || line.StartsWith("[wog] PATCH ", StringComparison.Ordinal))
             line += " [elapsed " + (long)patchClock.Elapsed.TotalSeconds + "s]";
         if (desktop) Console.WriteLine(line);

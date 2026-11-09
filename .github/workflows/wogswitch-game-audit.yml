@@ -12,6 +12,7 @@ on:
       - tools/prepare_game_files.py
       - tools/test_runtime_stdio.py
       - tools/test_native_audio.py
+      - tools/test_pc_preparation.py
       - switch/runtime/**
       - switch/managed/**
       - .github/workflows/wogswitch-game-audit.yml
@@ -83,6 +84,9 @@ jobs:
       - name: Patch and load the real PC DLLs without entering the game
         shell: bash
         run: LD_PRELOAD="$PWD/work/libnx-rename-semantics.so" WOG_TEST_LIBNX_RENAME=1 dotnet run --project tools/game-audit/GameAudit.csproj -c Release -- work/prepared-game/release output/game-audit | tee game-audit.log
+      - name: Exercise the optional PC preparation tool and relocatable SD cache
+        shell: bash
+        run: python3 tools/test_pc_preparation.py --host work/managed-api-audit --fixture work/prepared-game/release --output output/pc-preparation | tee pc-preparation-smoke.log
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -91,6 +95,8 @@ jobs:
             game-audit.log
             native-stdio-smoke.log
             native-audio-smoke.log
+            pc-preparation-smoke.log
+            output/pc-preparation/*.log
             output/game-audit/*.wav
             output/game-audit/*.json
             output/game-audit/*.txt
