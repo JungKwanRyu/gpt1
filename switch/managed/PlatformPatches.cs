@@ -5,7 +5,7 @@ namespace WogSwitch;
 
 internal static class PlatformPatches
 {
-    internal const string Version = "switch-platform-0.5.8-v1";
+    internal const string Version = "switch-platform-0.5.8-v2";
 
     internal static void Apply(string directory, Action<string> log)
     {
@@ -24,6 +24,7 @@ internal static class PlatformPatches
                 throw new InvalidDataException("Program.ReportCrash signature changed");
             SetBody(crash, il => { il.Emit(OpCodes.Ldarg_0); il.Emit(OpCodes.Call, Import(module, nameof(PlatformGameBridge.Crash))); il.Emit(OpCodes.Ret); });
             RewriteHostCalls(module);
+            LocalizeInlineArray4(module, log);
             WriteAndReplace(assembly, path);
         }
         path = Path.Combine(directory, "WarOfGenesis.Assets.dll");
@@ -41,6 +42,33 @@ internal static class PlatformPatches
             WriteAndReplace(assembly, path);
         }
         log("PASS Switch platform patches: report UI notice, power/DPI calls, configured scans, app paths, controlled exit/crash");
+    }
+
+    private static void LocalizeInlineArray4(ModuleDefinition module, Action<string> log)
+    {
+        // C# targeting .NET 10 uses BCL InlineArray4<T>; the .NET 9 compiler
+        // normally embeds this exact shape instead. Mono9 supports the
+        // InlineArrayAttribute introduced in .NET 8, so localize the buffer.
+        var references = module.GetTypeReferences().Where(t =>
+            t.FullName == "System.Runtime.CompilerServices.InlineArray4`1").ToArray();
+        if (references.Length != 1) throw new InvalidDataException("Expected one BCL10 InlineArray4 reference; found " + references.Length);
+        var local = new TypeDefinition("WogSwitch.Compatibility", "InlineArray4`1",
+            TypeAttributes.NotPublic | TypeAttributes.SequentialLayout | TypeAttributes.Sealed | TypeAttributes.BeforeFieldInit,
+            module.ImportReference(typeof(ValueType)));
+        var element = new GenericParameter("T", local);
+        local.GenericParameters.Add(element);
+        local.Fields.Add(new FieldDefinition("_element0", FieldAttributes.Private, element));
+        var attribute = new CustomAttribute(module.ImportReference(typeof(System.Runtime.CompilerServices.InlineArrayAttribute).GetConstructor(new[] { typeof(int) })!));
+        attribute.ConstructorArguments.Add(new CustomAttributeArgument(module.TypeSystem.Int32, 4));
+        local.CustomAttributes.Add(attribute);
+        module.Types.Add(local);
+        foreach (var reference in references)
+        {
+            reference.Scope = module;
+            reference.Namespace = local.Namespace;
+            reference.Name = local.Name;
+        }
+        log("PASS SDK9 module-local InlineArray4<T> layout replaces the BCL10 type reference");
     }
 
     private static MethodReference Import(ModuleDefinition module, string name) => module.ImportReference(
@@ -215,6 +243,8 @@ internal static class PlatformPatches
         // patch-cache file with create/truncate; never replace a release input.
         // The cache completion marker/hashes are written only after all patches
         // and validation finish, so an interrupted write cannot be reused.
+        foreach (var reference in assembly.MainModule.AssemblyReferences.Where(r => r.Name.StartsWith("System.") && r.Version.Major == 10))
+            reference.Version = new Version(9, 0, 0, 0);
         using var image = new MemoryStream();
         assembly.Write(image);
         image.Position = 0;

@@ -36,6 +36,8 @@ using (var shim = AssemblyDefinition.ReadAssembly(shimPath, new ReaderParameters
     }
     il.Emit(OpCodes.Call, module.ImportReference(typeof(string).GetMethod("Join", new[] { typeof(string), typeof(string[]) })!));
     il.Emit(OpCodes.Callvirt, bytes); il.Emit(OpCodes.Ret);
+    foreach (var reference in module.AssemblyReferences.Where(r => r.Name.StartsWith("System.") && r.Version.Major == 10))
+        reference.Version = new Version(9, 0, 0, 0);
     shim.Write(shimPath + ".net9-compatible");
 }
 File.Move(shimPath + ".net9-compatible", shimPath, true);
@@ -89,6 +91,8 @@ using (var assembly = AssemblyDefinition.ReadAssembly(path, new ReaderParameters
         method.Body.MaxStackSize = Math.Max(method.Body.MaxStackSize, 2);
         progressMethods.Add(name);
     }
+    foreach (var reference in module.AssemblyReferences.Where(r => r.Name.StartsWith("System.") && r.Version.Major == 10))
+        reference.Version = new Version(9, 0, 0, 0);
     assembly.Write(path + ".net9-compatible");
 }
 File.Move(path + ".net9-compatible", path, true);

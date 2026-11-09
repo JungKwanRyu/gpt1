@@ -8,6 +8,7 @@ on:
     paths:
       - tools/game-audit/**
       - tools/runtime-compat/**
+      - tools/sdk9-smoke/**
       - tools/fetch_game_fixture.py
       - tools/prepare_game_files.py
       - tools/test_runtime_stdio.py
@@ -26,7 +27,9 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: 10.0.x
+          dotnet-version: |
+            10.0.x
+            9.0.x
       - name: Restore the verified original Wog DLLs
         shell: python
         run: |
@@ -84,6 +87,9 @@ jobs:
       - name: Patch and load the real PC DLLs without entering the game
         shell: bash
         run: LD_PRELOAD="$PWD/work/libnx-rename-semantics.so" WOG_TEST_LIBNX_RENAME=1 dotnet run --project tools/game-audit/GameAudit.csproj -c Release -- work/prepared-game/release output/game-audit | tee game-audit.log
+      - name: Execute shader and actual patched inline-array layout on .NET 9
+        shell: bash
+        run: dotnet run --project tools/sdk9-smoke/Sdk9Smoke.csproj -c Release -- output/game-audit switch/managed/lib/WogShim.dll | tee sdk9-execution-smoke.log
       - name: Exercise the optional PC preparation tool and relocatable SD cache
         shell: bash
         run: python3 tools/test_pc_preparation.py --host work/managed-api-audit --fixture work/prepared-game/release --output output/pc-preparation | tee pc-preparation-smoke.log
@@ -93,6 +99,7 @@ jobs:
           name: WogSwitch-real-game-audit
           path: |
             game-audit.log
+            sdk9-execution-smoke.log
             native-stdio-smoke.log
             native-audio-smoke.log
             pc-preparation-smoke.log
