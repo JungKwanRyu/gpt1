@@ -1,0 +1,224 @@
+{
+  "version": "0.5.9",
+  "source_commit": "49fd7b87e5b7a545115c50e85cc313f431c29858",
+  "managed_ci_run": 42560029875,
+  "real_game_sd_regression_ci_run": 42560223178,
+  "tested_pc_version": "1.0.86.0",
+  "old_overwrite_rename_failure_reproduced": true,
+  "actual_game_patch_load_passes_under_rename_failure": true,
+  "sdk9_method_reference_unresolved": {
+    "sdk9-patcher-unresolved-methods.txt": 0,
+    "sdk9-WarOfGenesis-unresolved-methods.txt": 0,
+    "sdk9-shim-unresolved-methods.txt": 0,
+    "sdk9-managed-host-unresolved-methods.txt": 0,
+    "sdk9-WarOfGenesis.Assets-unresolved-methods.txt": 0
+  },
+  "bridge_imports": 21,
+  "post_platform_patcher_missing": 0,
+  "desktop_actual_main_original_folder_cancel": true,
+  "previous_device_version": "0.5.8",
+  "previous_device_confirmed": [
+    "Title screen and first game frame presented",
+    "battlescene and hicanvas shaders ready",
+    "304 previous asset failures resolved; asset report contains only its template header",
+    "audio audout open/submit/release succeeded",
+    "new-game transition failed in JPEG ARM SIMD TLS initialization; matching ELF build ID"
+  ],
+  "this_version_hardware_tested": false,
+  "gameplay_verified": false,
+  "audio_output_available": true,
+  "managed_source_commit": "653b6eb24c0422e9f7172f7f8b156803fd656e6c",
+  "previous_device_failure": "2168-0002 Data Abort at JPEG init_simd; matched 0.5.8 ELF build ID",
+  "native_copy_metadata_failure_reproduced": true,
+  "portable_copy_integrity_and_move_rollback_passed": true,
+  "game_file_routes": {
+    "WarOfGenesis": 10,
+    "WarOfGenesis.Assets": 3
+  },
+  "native_stdio_disposed_console_regression_passed": true,
+  "startup_journal_persisted_before_main": true,
+  "native_progress_mirror_regression_passed": true,
+  "all_special_folder_routes_audited": true,
+  "current_run_load_report_persisted": true,
+  "real_game_major_patch_phase_callbacks_passed": true,
+  "audio_backend_integrated": true,
+  "audio_output_hardware_tested": false,
+  "native_audio_resampling_and_service_mock_tests_passed": true,
+  "actual_game_mixer_to_sink_fake_interop_passed": true,
+  "asset_missing_vs_io_error_diagnostics_passed": true,
+  "crash_reporting_without_secondary_throw_passed": true,
+  "unavailable_asset_count_on_previous_device": 0,
+  "unavailable_asset_cause_diagnosed": true,
+  "read_only_verification_equivalence_passed": true,
+  "source_hash_recheck_before_reusing_loaded_game": true,
+  "per_preparation_asset_snapshot_passed": true,
+  "progress_log_coalescing_passed": true,
+  "pc_preparation_linux_passed": true,
+  "pc_preparation_windows_passed": true,
+  "pc_preparation_windows_job": 128974324351,
+  "verification_stage_linux_single_measurement": {
+    "environment": "Linux .NET; not a Switch speed measurement",
+    "read_only_ms": 18.6865,
+    "full_repatch_ms": 765.5606,
+    "negative_missing": 90,
+    "patched_missing": 0,
+    "dll_bytes_unchanged": true
+  },
+  "unavailable_asset_failure_stage_diagnosed": true,
+  "prior_device_audio_open_submit_release_confirmed": true,
+  "audible_output_confirmed": false,
+  "sdk9_type_and_method_references_audited": true,
+  "sdk9_shader_blob_execution_passed": true,
+  "sdk9_inlinearray4_layout_execution_passed": true,
+  "sdk9_execution_environment": "Linux CoreCLR9; not Horizon Mono/GPU/gameplay",
+  "unicode_character_extraction_and_find_passed": true,
+  "unicode_folder_preservation_and_ambiguous_id_rejection_passed": true,
+  "unicode_spelling_root_cause_on_device_confirmed": false,
+  "sdk9_type_and_method_reference_unresolved": {
+    "sdk9-patcher-unresolved-methods.txt": 0,
+    "sdk9-WarOfGenesis-unresolved-methods.txt": 0,
+    "sdk9-shim-unresolved-methods.txt": 0,
+    "sdk9-managed-host-unresolved-methods.txt": 0,
+    "sdk9-WarOfGenesis.Assets-unresolved-methods.txt": 0
+  },
+  "runtime_compatibility": {
+    "input": "WogPatcher.dll",
+    "original_sha256": "0ef54f0b771eb28f4678ce1fa4c3bb73afce49cdf29fabc1299448e20a52f5e8",
+    "adapted_sha256": "a6132d9df6d6d2a25a151b664feee1c7400b00c9c1b3abd882b2c389dfc56274",
+    "reverse_array_calls_adapted": 1,
+    "progress_methods": [
+      "Patch",
+      "Retarget",
+      "RedirectCalls",
+      "RewritePInvokes",
+      "Verify"
+    ],
+    "shim_original_sha256": "c8f9909fd0d78e2d23cfe58e57838c44d590d5c9ddf530d044e614af9bb786aa",
+    "shim_adapted_sha256": "711fbb8a0b4dc83852ffafad2e772b7e6ff571f178a77f71b7ebb1e327b57e7e",
+    "shader_blob": "HlslBlob.Pack: same UTF8 NUL-separated WOGHLSL/name/entry/profile/source fields using String.Join(string,string[]) instead of BCL10 InlineArray5",
+    "change": "SDK9 shader blob, Reverse signature and major patch phases through WogShim.Host.Log"
+  },
+  "native_link_undefined_symbols": 0,
+  "native_skia_imports_resolved": 877,
+  "menu_latency_device_seconds_before": "3-4",
+  "menu_latency_device_seconds_after": null,
+  "native_backdrop_equivalence_to_original_game_passed": true,
+  "native_raster_ubsan_cases": 4000,
+  "frame_phase_measurement_added": true,
+  "jpeg_scalar_dispatcher": true,
+  "jpeg_crash_path_absent_in_final_elf": true,
+  "jpeg_baseline_and_progressive_desktop_test_passed": true,
+  "jpeg_baseline_and_progressive_switch_selftest_added": true,
+  "jpeg_switch_selftest_device_result_pending": true,
+  "skia_ci_run": 42559487837,
+  "skia_source_commit": "d761e67a39b77fe09c7bc600d792139244829b34",
+  "native_skia": {
+    "skia_commit": "30abf4a0dcd3006f3a555e46906151e486f87b6e",
+    "dependencies": {
+      "expat": {
+        "url": "https://chromium.googlesource.com/external/github.com/libexpat/libexpat.git",
+        "commit": "2691aff4304a6d7e053199c205620136481b9dd1"
+      },
+      "freetype": {
+        "url": "https://chromium.googlesource.com/chromium/src/third_party/freetype2.git",
+        "commit": "83af801b552111e37d9466a887e1783a0fb5f196"
+      },
+      "libjpeg-turbo": {
+        "url": "https://chromium.googlesource.com/chromium/deps/libjpeg_turbo.git",
+        "commit": "927aabfcd26897abb9776ecf2a6c38ea5bb52ab6"
+      },
+      "libpng": {
+        "url": "https://skia.googlesource.com/third_party/libpng.git",
+        "commit": "f5e92d76973a7a53f517579bc95d61483bf108c0"
+      },
+      "libwebp": {
+        "url": "https://chromium.googlesource.com/webm/libwebp.git",
+        "commit": "ca332209cb5567c9b249c86788cb2dbf8847e760"
+      },
+      "wuffs": {
+        "url": "https://skia.googlesource.com/external/github.com/google/wuffs-mirror-release-c.git",
+        "commit": "e3f919ccfe3ef542cfc983a82146070258fb57f8"
+      },
+      "zlib": {
+        "url": "https://chromium.googlesource.com/chromium/src/third_party/zlib",
+        "commit": "3ca9f16f02950edffa391ec19cea856090158e9e"
+      }
+    },
+    "gn_args": {
+      "target_os": "linux",
+      "target_cpu": "arm64",
+      "is_official_build": true,
+      "is_static_skiasharp": true,
+      "cc": "/opt/devkitpro/devkitA64/bin/aarch64-none-elf-gcc",
+      "cxx": "/opt/devkitpro/devkitA64/bin/aarch64-none-elf-g++",
+      "ar": "/opt/devkitpro/devkitA64/bin/aarch64-none-elf-ar",
+      "host_cc": "/usr/bin/gcc",
+      "host_cxx": "/usr/bin/g++",
+      "host_ar": "/usr/bin/ar",
+      "skia_enable_ganesh": false,
+      "skia_enable_graphite": false,
+      "skia_use_gl": false,
+      "skia_use_vulkan": false,
+      "skia_use_x11": false,
+      "skia_use_fontconfig": false,
+      "skia_use_icu": false,
+      "skia_use_harfbuzz": false,
+      "skia_use_piex": false,
+      "skia_use_dng_sdk": false,
+      "skia_use_lua": false,
+      "skia_use_perfetto": false,
+      "skia_enable_tools": false,
+      "skia_use_system_expat": false,
+      "skia_use_system_freetype2": false,
+      "skia_use_system_libjpeg_turbo": false,
+      "skia_use_system_libpng": false,
+      "skia_use_system_libwebp": false,
+      "skia_use_system_zlib": false,
+      "extra_cflags": [
+        "-D__SWITCH__",
+        "-DSK_BUILD_FOR_UNIX",
+        "-D_GNU_SOURCE=1",
+        "-march=armv8-a+crc+crypto",
+        "-mtune=cortex-a57",
+        "-mtp=soft"
+      ]
+    },
+    "compiler": "aarch64-none-elf-g++ (devkitA64) 15.2.0",
+    "archive_bytes": 22364526,
+    "archive_sha256": "b2317d18e170e4e3884d151ec5b16ed678ca978cf1afb7f6b456d90f74edce58",
+    "jpeg_dispatcher": "jsimd_none; ARM SIMD TLS dispatcher disabled for Horizon",
+    "jpeg_crash_path_removed": true,
+    "exports": 921,
+    "hardware_tested": false
+  },
+  "native_link": {
+    "version": "0.5.9",
+    "undefined_native_symbols": 0,
+    "bridge_imports_resolved": 21,
+    "skia_imports_resolved": 877,
+    "crashing_jpeg_initialization_absent": true,
+    "jpeg_capability_disassembly": "build/switch-probe-0.5.9/WogSwitchProbe.elf:     file format elf64-littleaarch64\n\n\nDisassembly of section .text:\n\n00000000012a6a50 <jsimd_can_ycc_rgb>:\n 12a6a50:\t52800000 \tmov\tw0, #0x0                   \t// #0\n 12a6a54:\td65f03c0 \tret\n\nDisassembly of section .init:\n\nDisassembly of section .fini:",
+    "hardware_tested": false
+  },
+  "crash_analysis": {
+    "device_version": "0.5.8",
+    "elf_build_id": "341f0f5fdee92ebf45edf32c5a645a5b1eb7dc99",
+    "crash_module_build_id_matches": true,
+    "error": "2168-0002 Data Abort",
+    "crash_offset": "0x12a693c",
+    "symbolized_codec_path": [
+      "init_simd at jsimd.c:?",
+      "jsimd_can_ycc_rgb at :?",
+      "jinit_color_deconverter at :?",
+      "jinit_master_decompress at :?",
+      "jpeg_start_decompress at :?",
+      "SkJpegCodec::onGetPixels(SkImageInfo const&, void*, unsigned long, SkCodec::Options const&, int*) at ??:?",
+      "SkCodec::getPixels(SkImageInfo const&, void*, unsigned long, SkCodec::Options const*) at :?",
+      "sk_codec_get_pixels at ??:?"
+    ],
+    "diagnosis": "libjpeg ARM SIMD dispatcher TLS initialization dereferences an invalid address before JPEG decode",
+    "raw_memory_or_user_logs_included": false,
+    "menu_latency_user_report_seconds": "3-4",
+    "menu_hotspot": "TitleScreen.DrawTitle loops through 640x480 pixels with SetPixel under Mono interpreter; device phase timings not yet measured"
+  }
+}
