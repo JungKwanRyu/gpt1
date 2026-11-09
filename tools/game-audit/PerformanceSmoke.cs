@@ -10,6 +10,8 @@ internal static class PerformanceSmoke
         string baseline = Path.Combine(output, "validator-baseline");
         var originalReport = GamePatcher.Patch(original, settings.ShimPath, baseline);
         var negative = PatchValidation.Verify(baseline, settings.ShimPath, Console.WriteLine);
+        File.WriteAllLines(Path.Combine(output, "read-only-negative.txt"), negative.Missing);
+        File.WriteAllLines(Path.Combine(output, "original-negative.txt"), originalReport.Missing);
         if (negative.Missing.Count == 0 || !negative.Missing.ToHashSet().SetEquals(originalReport.Missing))
             throw new InvalidDataException("Read-only verifier must detect exactly the original validator's negative baseline");
         var before = GamePatcher.GameAssemblies.ToDictionary(n => n, n => GameLoader.Digest(Path.Combine(patched, n)));

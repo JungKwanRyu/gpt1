@@ -22,6 +22,12 @@ internal static class PatchValidation
         {
             Diagnostics.Step("read-only original Verify " + name, log);
             using var assembly = AssemblyDefinition.ReadAssembly(Path.Combine(directory, name), parameters);
+            // The public Patch pass reports unsupported native imports in its
+            // RewritePInvokes phase, outside Verify. A prepared Switch image
+            // must have no direct P/Invoke left, even if a shim could map it.
+            foreach (var method in assembly.MainModule.GetTypes().SelectMany(t => t.Methods).Where(m => m.IsPInvokeImpl))
+                report.Missing.Add("P/Invoke without shim: " + method.PInvokeInfo.Module.Name + "!" + method.PInvokeInfo.EntryPoint +
+                    " (" + method.DeclaringType.FullName + "." + method.Name + ")");
             try { verify.Invoke(null, new object[] { assembly.MainModule, shim.MainModule, report }); }
             catch (TargetInvocationException ex) when (ex.InnerException != null) { ExceptionDispatchInfo.Capture(ex.InnerException).Throw(); }
         }

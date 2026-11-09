@@ -19,11 +19,16 @@ internal static class DesktopPreparation
         if (prepared.Missing.Length != 0) throw new NotSupportedException("Unresolved patch items: " + prepared.Missing.Length);
         var loaded = GameLoader.Load(prepared, log);
         int unavailable = -1;
-        if (settings.Part2Present && Directory.Exists(Path.Combine(settings.ReleaseDir, "assets/characters")) &&
+        string cachedAssets = Path.Combine(settings.SaveDir, "assets");
+        bool existingAssets = Directory.Exists(cachedAssets) && Directory.EnumerateFileSystemEntries(cachedAssets).Any();
+        if (existingAssets) log("PC ASSETS skipped: preserving the existing save/assets cache and user edits; the NRO will resume its checks");
+        else if (settings.Part2Present && Directory.Exists(Path.Combine(settings.ReleaseDir, "assets/characters")) &&
             File.Exists(Path.Combine(settings.ReleaseDir, "assets/originals.txt")))
         {
             object? oldBase = AppContext.GetData("APP_CONTEXT_BASE_DIRECTORY");
             string? previous = Environment.GetEnvironmentVariable("DUELDX_SAVEDIR");
+            string savedRoot = Path.Combine(settings.SaveDir, "DuelDx/gameroot.txt");
+            byte[]? savedRootBytes = File.Exists(savedRoot) ? File.ReadAllBytes(savedRoot) : null;
             try
             {
                 PlatformGameBridge.Configure(settings);
@@ -41,6 +46,8 @@ internal static class DesktopPreparation
             {
                 AppContext.SetData("APP_CONTEXT_BASE_DIRECTORY", oldBase);
                 Environment.SetEnvironmentVariable("DUELDX_SAVEDIR", previous);
+                if (savedRootBytes != null) File.WriteAllBytes(savedRoot, savedRootBytes);
+                else if (File.Exists(savedRoot)) File.Delete(savedRoot);
             }
         }
         else log("PC ASSETS skipped: part2 originals or shipped release/assets are not present; DLL cache is still prepared");

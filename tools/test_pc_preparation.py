@@ -39,9 +39,13 @@ def main():
         assert "Cache: built" in prepare(first, "pc-prepare-cold.log")
         assert (first / "save/assets/data/TXR/Txr.dat").is_file()
         assert (first / "asset-report.txt").is_file()
+        (first / "save/assets/user-edited.json").write_text("USER_EDIT_MUST_SURVIVE")
+        stamp = (first / "save/assets/.shipped").read_bytes()
         second = root / "moved-card/switch/WogSwitchProbe"
         shutil.copytree(first, second)
         assert "Cache: verified hit" in prepare(second, "pc-prepare-moved.log")
+        assert (second / "save/assets/user-edited.json").read_text() == "USER_EDIT_MUST_SURVIVE"
+        assert (second / "save/assets/.shipped").read_bytes() == stamp
         assert all(hashlib.sha256((second / "release" / name).read_bytes()).digest() == value for name, value in hashes.items())
         print("PASS actual shipped host runs from an isolated PC folder without native Skia, prepatches DLLs, extracts synthetic original data and reuses its cache after SD-root relocation")
 
