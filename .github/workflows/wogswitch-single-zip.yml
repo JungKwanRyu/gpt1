@@ -82,4 +82,25 @@ jobs:
           assert hashlib.sha256(roundtrip).hexdigest() == EXPECTED
           assert len(roundtrip) == len(data)
           print("ROUNDTRIP DOWNLOAD VERIFIED:", len(roundtrip), "bytes; SHA256", EXPECTED)
-          
+      - name: Stage the verified ZIP contents for chat attachment
+        shell: python
+        run: |
+          import hashlib, zipfile
+          from pathlib import Path
+          source = Path("WogSwitchProbe-0.5.11.zip")
+          assert hashlib.sha256(source.read_bytes()).hexdigest() == "a1260c40d5c986fc0f241bfed54d98a219a2739d4d2be222be840f10dc56c5b5"
+          target = Path("download-package")
+          with zipfile.ZipFile(source) as archive:
+              assert archive.testzip() is None
+              archive.extractall(target)
+          for line in (target / "SHA256SUMS.txt").read_text().splitlines():
+              digest, name = line.split("  ", 1)
+              assert hashlib.sha256((target / name).read_bytes()).hexdigest() == digest, name
+          print("CHAT ATTACHMENT CONTENTS VERIFIED")
+      - uses: actions/upload-artifact@v4
+        with:
+          name: WogSwitchProbe-0.5.11-download
+          path: download-package/
+          include-hidden-files: true
+          compression-level: 9
+          retention-days: 90
