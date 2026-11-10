@@ -6,3 +6,9 @@ void wog_draw_frame(uint32_t *dst, int dw, const uint32_t *src, int sw, int left
 void wog_fill_rect(uint32_t *dst, int dw, int x0, int y0, int x1, int y1, uint32_t color);
 void wog_blit_masked(uint32_t *dst, int dw, const uint32_t *src, int sw, int left, int top,
                      int x0, int y0, int x1, int y1, int fade, int additive);
+typedef struct {
+    const uint32_t *pixels;
+    int pw, ph, x, y, w, h, sx, sy;
+} WogFieldPiece;
+void wog_field_backdrop(uint32_t *dst, int dw, int dh, const uint32_t *bg, int bw, int bh,
+                        int cx, int cy, int ox, int oy, const WogFieldPiece *pieces, int count);

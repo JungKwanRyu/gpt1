@@ -4,8 +4,8 @@ namespace WogSwitch;
 
 public static class FrameProfiler
 {
-    private static readonly long[] starts = new long[4], ticks = new long[4], counts = new long[4];
-    private static readonly string[] names = { "compose", "upload", "draw", "pump" };
+    private static readonly long[] starts = new long[11], ticks = new long[11], counts = new long[11];
+    private static readonly string[] names = { "compose", "upload", "draw", "pump", "background", "battle", "field", "moses", "ui", "title", "cutscene" };
     private static Action<string>? logger;
     private static string? report;
     private static long since, frames, lastFrame, maxInterval;
@@ -16,7 +16,7 @@ public static class FrameProfiler
         Array.Clear(starts); Array.Clear(ticks); Array.Clear(counts);
         warmup = true; frames = lastFrame = maxInterval = 0; since = Stopwatch.GetTimestamp();
         logger = log; report = Path.Combine(root, "performance.log");
-        File.WriteAllText(report, "WogSwitch 0.5.10 frame wall times; draw includes swap; not GPU-only time; gaps over 60s recorded separately\n");
+        File.WriteAllText(report, "WogSwitch 0.5.11 frame wall times; draw includes swap; not GPU-only time; gaps over 60s recorded separately\n");
     }
 
     public static void Begin(int phase) => BeginAt(phase, Stopwatch.GetTimestamp());
@@ -57,8 +57,17 @@ public static class FrameProfiler
         long now = Stopwatch.GetTimestamp();
         double seconds = (now - since) / (double)Stopwatch.Frequency;
         string line = "PERF frames=" + frames + " fps=" + (frames / Math.Max(seconds, .001)).ToString("F2", System.Globalization.CultureInfo.InvariantCulture);
-        for (int i = 0; i < names.Length; i++)
+        for (int i = 0; i < 4; i++)
             line += " " + names[i] + "=" + (ticks[i] * 1000.0 / Stopwatch.Frequency / Math.Max(1, counts[i])).ToString("F1", System.Globalization.CultureInfo.InvariantCulture) + "ms";
+        // Section timings are totals per compose, not per function call. These
+        // top-level Compose calls do not overlap; uninstrumented work is rest.
+        long sections = 0;
+        for (int i = 4; i < names.Length; i++)
+        {
+            sections += ticks[i];
+            line += " " + names[i] + "=" + (ticks[i] * 1000.0 / Stopwatch.Frequency / Math.Max(1, counts[0])).ToString("F1", System.Globalization.CultureInfo.InvariantCulture) + "ms";
+        }
+        line += " rest=" + (Math.Max(0, ticks[0] - sections) * 1000.0 / Stopwatch.Frequency / Math.Max(1, counts[0])).ToString("F1", System.Globalization.CultureInfo.InvariantCulture) + "ms";
         line += " max-frame=" + (maxInterval * 1000.0 / Stopwatch.Frequency).ToString("F1", System.Globalization.CultureInfo.InvariantCulture) + "ms";
         try { File.AppendAllText(report, line + "\n"); logger?.Invoke(line); }
         catch { /* Timing must not terminate the game. */ }

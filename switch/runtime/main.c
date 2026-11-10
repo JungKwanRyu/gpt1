@@ -155,10 +155,9 @@ void wog_graphics_stop(void)
     context = EGL_NO_CONTEXT;
     surface = EGL_NO_SURFACE;
     display = EGL_NO_DISPLAY;
-    // EGL has released the window. Restoring the text renderer does not
-    // change stdout/stderr after libnx's first consoleInit call.
-    PrintConsole *restored_console = consoleInit(NULL);
-    text_console_live = restored_console && restored_console->consoleInitialised;
+    // Do not reopen the software framebuffer after EGL teardown.
+    // Completion/errors remain in the persistent log; return through hbloader.
+    text_console_live = false;
     graphics_active = false;
 }
 
@@ -406,10 +405,20 @@ static void *bridge_symbol(void *handle, const char *name, char **err, void *use
     EXPORT(wog_dialog_begin); EXPORT(wog_dialog_end);
     EXPORT(wog_audio_open); EXPORT(wog_audio_write); EXPORT(wog_audio_played);
     EXPORT(wog_audio_flush); EXPORT(wog_audio_close); EXPORT(wog_blit_opaque);
-    EXPORT(wog_draw_frame); EXPORT(wog_fill_rect); EXPORT(wog_blit_masked);
+    EXPORT(wog_draw_frame); EXPORT(wog_fill_rect); EXPORT(wog_blit_masked); EXPORT(wog_field_backdrop);
 #undef EXPORT
     stage("FAIL unknown bridge export: %s", name);
     return NULL;
+}
+
+static void finish_runtime(void)
+{
+    wog_audio_shutdown();
+    if (graphics_active) wog_graphics_stop();
+    text_console_live = false;
+    console_dispose();
+    if (report) fflush(report);
+    application_force_exit();
 }
 
 int main(int argc, char **argv)
@@ -471,6 +480,8 @@ int main(int argc, char **argv)
     char *managed_args[] = { (char *)dll };
     int result = mono_jit_exec(domain, assembly, 1, managed_args);
     stage("Managed checkpoint exit code: %d", result);
+    finish_runtime();
+    return 0;
 wait:
     wog_audio_shutdown();
     if (graphics_active) wog_graphics_stop();
@@ -482,8 +493,6 @@ wait:
         if (padGetButtons(&pad) & HidNpadButton_Plus) break;
         if (text_console_live) consoleUpdate(NULL);
     }
-    if (report) fclose(report);
-    if (text_console_live) { consoleExit(NULL); text_console_live = false; }
-    console_dispose();
+    finish_runtime();
     return 0;
 }

@@ -96,5 +96,27 @@ internal static class SceneRasterPatches
             writer2.InsertAfter(call, begin); writer2.InsertAfter(begin, original); writer2.InsertAfter(original, number); writer2.InsertAfter(number, finish);
         }
         render.Body.MaxStackSize++;
+
+        var compose = window.Methods.Single(m => m.Name == "Compose");
+        var timer = compose.Body.GetILProcessor();
+        foreach (var call in compose.Body.Instructions.Where(i => i.OpCode == OpCodes.Call || i.OpCode == OpCodes.Callvirt).ToArray())
+        {
+            var method = (MethodReference)call.Operand;
+            if (method.ReturnType.MetadataType != MetadataType.Void || !method.Name.StartsWith("Draw")) continue;
+            string owner = method.DeclaringType.Name;
+            int phase = owner == "FieldScene" ? 6 : owner == "MosesScene" ? 7 :
+                owner is "TitleScreen" or "Part1TitleScreen" or "EpisodesScreen" or "ChaptersScreen" ? 9 :
+                owner.Contains("Cutscene", StringComparison.OrdinalIgnoreCase) ? 10 :
+                owner == "BattleScene" ? 5 : method.Name is "DrawBackground" or "DrawMapTint" ? 4 : 8;
+            var opcode = call.OpCode;
+            call.OpCode = OpCodes.Ldc_I4; call.Operand = phase;
+            var begin = timer.Create(OpCodes.Call, module.ImportReference(typeof(FrameProfiler).GetMethod(nameof(FrameProfiler.Begin))!));
+            var original = timer.Create(opcode, method);
+            var number = timer.Create(OpCodes.Ldc_I4, phase);
+            var end = timer.Create(OpCodes.Call, module.ImportReference(typeof(FrameProfiler).GetMethod(nameof(FrameProfiler.End))!));
+            timer.InsertAfter(call, begin); timer.InsertAfter(begin, original); timer.InsertAfter(original, number); timer.InsertAfter(number, end);
+        }
+        compose.Body.MaxStackSize++;
+        log("PASS non-overlapping Compose section timers (per composed frame)");
     }
 }

@@ -57,6 +57,7 @@ internal static class StartupSmoke
         try { PlatformGameBridge.Exit(7); } catch (GameExitException ex) when (ex.ExitCode == 7) { Console.WriteLine("PASS controlled game exit preserves the host process"); }
         RasterSmoke.Run(game);
         SharedRasterSmoke.Run(game, root);
+        FieldRasterSmoke.Run(game);
         RealMixerSmoke.Run();
         AssetDiagnosticsSmoke.Run(root, output, settings);
         PerformanceSmoke.Snapshot(settings);

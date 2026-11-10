@@ -1,5 +1,6 @@
 #include "raster.h"
 #include <stddef.h>
+_Static_assert(sizeof(WogFieldPiece) == 40 && offsetof(WogFieldPiece, sx) == 32, "Field piece ABI mismatch");
 
 // Same order/clipping as the game's SetPixel(dx+x,dy+y,src[y*sw+x]|0xff000000).
 // Managed caller validates both array lengths and pins them for this call.
@@ -92,6 +93,35 @@ void wog_blit_masked(uint32_t *dst, int dw, const uint32_t *src, int sw, int lef
             if (additive) { *d = add_color(*d, color, (unsigned)fade); continue; }
             if (fade < 256) { color = mix_color(*d, color, (unsigned)fade, 256); alpha = 255; }
             *d = alpha == 255 ? color : mix_color(*d, color, alpha, 255);
+        }
+    }
+}
+
+void wog_field_backdrop(uint32_t *dst, int dw, int dh, const uint32_t *bg, int bw, int bh,
+                        int cx, int cy, int ox, int oy, const WogFieldPiece *pieces, int count)
+{
+    for (int y = 0; y < 480; y++) {
+        int64_t fy = (int64_t)oy + y, wy = (int64_t)y + cy;
+        if (fy < 0 || fy >= dh) continue;
+        for (int x = 0; x < 640; x++) {
+            int64_t fx = (int64_t)ox + x, wx = (int64_t)x + cx;
+            if (fx < 0 || fx >= dw) continue;
+            uint32_t *to = dst + fy * dw + fx;
+            if (wy >= 0 && wy < bh && wx >= 0 && wx < bw) {
+                uint32_t color = bg[wy * bw + wx];
+                if ((color & UINT32_C(0x00f8fcf8)) != UINT32_C(0x00f8fc00)) {
+                    *to = color | UINT32_C(0xff000000); continue;
+                }
+            }
+            for (int i = 0; i < count; i++) {
+                const WogFieldPiece *p = pieces + i;
+                int64_t lx = wx - p->x, ly = wy - p->y;
+                if (lx < 0 || lx >= p->w || ly < 0 || ly >= p->h) continue;
+                int px = (int)(((lx + p->sx) % p->pw + p->pw) % p->pw);
+                int py = (int)(((ly + p->sy) % p->ph + p->ph) % p->ph);
+                *to = p->pixels[(int64_t)py * p->pw + px] | UINT32_C(0xff000000);
+                break;
+            }
         }
     }
 }

@@ -7,6 +7,48 @@ public static class SwitchRaster
 {
     internal static bool UseNative { get; set; }
 
+    [StructLayout(LayoutKind.Sequential)]
+    private unsafe struct FieldPiece
+    {
+        internal uint* Pixels;
+        internal int Pw, Ph, X, Y, W, H, Sx, Sy;
+    }
+
+    public static unsafe bool TryFieldBackdrop(uint[] destination, int width, int height,
+        (uint[] Px, int W, int H)? background, (int X, int Y) camera,
+        List<(int X1, int Y1, int W, int H, uint[] Px, int PicW, int PicH, int Vx, int Vy)> pieces,
+        int ox, int oy, int flow)
+    {
+        if (!UseNative || background is not { } bg || !Valid(destination, width, height, bg.Px, bg.W, bg.H) || pieces.Count > 64) return false;
+        int count = pieces.Count;
+        for (int i = 0; i < count; i++)
+        {
+            var p = pieces[i];
+            if (p.PicW <= 0 || p.PicH <= 0 || p.Px == null || (long)p.PicW * p.PicH > p.Px.Length) return false;
+        }
+        FieldPiece* descriptors = stackalloc FieldPiece[count];
+        Span<GCHandle> handles = stackalloc GCHandle[count];
+        int pinned = 0;
+        try
+        {
+            for (int i = 0; i < count; i++)
+            {
+                var p = pieces[i];
+                handles[i] = GCHandle.Alloc(p.Px, GCHandleType.Pinned); pinned++;
+                descriptors[i] = new FieldPiece {
+                    Pixels = (uint*)handles[i].AddrOfPinnedObject(), Pw = p.PicW, Ph = p.PicH,
+                    X = p.X1, Y = p.Y1, W = p.W, H = p.H,
+                    Sx = unchecked((bg.W > 640 ? (p.PicW - p.W) * camera.X / (bg.W - 640) : 0) - p.Vx * flow),
+                    Sy = unchecked((bg.H > 480 ? (p.PicH - p.H) * camera.Y / (bg.H - 480) : 0) - p.Vy * flow) };
+            }
+            fixed (uint* dst = destination)
+            fixed (uint* src = bg.Px)
+                wog_field_backdrop(dst, width, height, src, bg.W, bg.H, camera.X, camera.Y, ox, oy, descriptors, count);
+            return true;
+        }
+        finally { for (int i = 0; i < pinned; i++) handles[i].Free(); }
+    }
+
     public static unsafe bool TryFrame(uint[] destination, int width, int height, uint[] source, int sw, int sh,
         int left, int top, int mode, double fade, (int Left, int Top, int Width, int Height)? clip)
     {
@@ -82,4 +124,6 @@ public static class SwitchRaster
     private static extern unsafe void wog_fill_rect(uint* dst, int dw, int x0, int y0, int x1, int y1, uint color);
     [DllImport("WogSwitch", CallingConvention = CallingConvention.Cdecl)]
     private static extern unsafe void wog_blit_masked(uint* dst, int dw, uint* src, int sw, int left, int top, int x0, int y0, int x1, int y1, int fade, int additive);
+    [DllImport("WogSwitch", CallingConvention = CallingConvention.Cdecl)]
+    private static extern unsafe void wog_field_backdrop(uint* dst, int dw, int dh, uint* bg, int bw, int bh, int cx, int cy, int ox, int oy, FieldPiece* pieces, int count);
 }

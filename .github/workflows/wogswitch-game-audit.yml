@@ -12,6 +12,7 @@ on:
       - tools/fetch_game_fixture.py
       - tools/prepare_game_files.py
       - tools/test_runtime_stdio.py
+      - tools/test_runtime_exit.py
       - tools/test_native_audio.py
       - tools/test_native_raster.py
       - tools/test_pc_preparation.py
@@ -81,6 +82,8 @@ jobs:
       - name: Exercise streaming PCM and the actual audio driver with mocked audout
         shell: bash
         run: python3 tools/test_native_audio.py --output output/game-audit | tee native-audio-smoke.log
+      - name: Verify EGL teardown and the clean homebrew exit without a console refresh
+        run: python3 tools/test_runtime_exit.py --nroforge work/forge | tee native-exit-smoke.log
       - name: Build the actual host for Switch BCL API inspection
         run: dotnet publish switch/managed/WogSwitch.Managed.csproj -c Release -o work/managed-api-audit
       - name: Compare native raster clipping and opaque alpha under UBSan
@@ -106,6 +109,7 @@ jobs:
             game-audit.log
             sdk9-execution-smoke.log
             native-stdio-smoke.log
+            native-exit-smoke.log
             native-audio-smoke.log
             native-raster-smoke.log
             pc-preparation-smoke.log
