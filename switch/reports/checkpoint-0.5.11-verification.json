@@ -1,0 +1,61 @@
+{
+  "version": "0.5.11",
+  "source_commit": "5b353afe320e73aebe676c28ef861344221fe4a2",
+  "managed_source_commit": "5b353afe320e73aebe676c28ef861344221fe4a2",
+  "managed_ci_run": 42754463434,
+  "real_game_sd_regression_ci_run": 42754463660,
+  "pc_preparation_windows_job": 129625628742,
+  "tested_pc_version": "1.0.86.0",
+  "bridge_imports": 25,
+  "post_platform_patcher_missing": 0,
+  "sdk9_method_reference_unresolved": {
+    "sdk9-patcher-unresolved-methods.txt": 0,
+    "sdk9-WarOfGenesis-unresolved-methods.txt": 0,
+    "sdk9-shim-unresolved-methods.txt": 0,
+    "sdk9-managed-host-unresolved-methods.txt": 0,
+    "sdk9-WarOfGenesis.Assets-unresolved-methods.txt": 0
+  },
+  "sdk9_type_and_method_reference_unresolved": {
+    "sdk9-patcher-unresolved-methods.txt": 0,
+    "sdk9-WarOfGenesis-unresolved-methods.txt": 0,
+    "sdk9-shim-unresolved-methods.txt": 0,
+    "sdk9-managed-host-unresolved-methods.txt": 0,
+    "sdk9-WarOfGenesis.Assets-unresolved-methods.txt": 0
+  },
+  "native_link": {
+    "version": "0.5.11",
+    "undefined_native_symbols": 0,
+    "bridge_imports_resolved": 25,
+    "skia_imports_resolved": 877,
+    "jpeg_crash_initialization_absent": true,
+    "hardware_tested": false
+  },
+  "shared_native_pixel_equivalence_cases": 1106,
+  "shared_native_sprite_fill_masked_kernels": true,
+  "all_eight_ui_modes_compared": true,
+  "special_tint_and_part1_blend_original_fallback_preserved": true,
+  "long_pause_timing_excluded_from_regular_fps": true,
+  "part1_title_backdrop_native": true,
+  "verification_stage_linux_single_measurement": {
+    "environment": "Linux .NET; not a Switch speed measurement",
+    "read_only_ms": 31.3382,
+    "full_repatch_ms": 567.6713,
+    "negative_missing": 90,
+    "patched_missing": 0,
+    "dll_bytes_unchanged": true
+  },
+  "read_only_verification_equivalence_passed": true,
+  "pc_preparation_linux_passed": true,
+  "pc_preparation_windows_passed": true,
+  "native_raster_ubsan_cases": 4000,
+  "this_version_hardware_tested": false,
+  "gameplay_verified": false,
+  "device_performance_after": null,
+  "redistribution_contains_user_device_telemetry": false,
+  "field_native_pixel_equivalence_cases": 107,
+  "field_color_key_parallax_flow_order_preserved": true,
+  "field_retained_picture_native_copy": true,
+  "post_egl_console_reopen_removed": true,
+  "actual_native_clean_exit_mock_regression": true,
+  "compose_section_profiling": true
+}
