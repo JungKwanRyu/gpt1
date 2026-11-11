@@ -94,7 +94,7 @@ internal static class StreamingPlaybackPatches
             throw new InvalidDataException("Movie clock expression changed");
         var target = sub.Next; var ui = update.Body.GetILProcessor();
         ui.InsertBefore(target, ui.Create(OpCodes.Ldarg_0)); ui.InsertBefore(target, ui.Create(OpCodes.Ldfld, cut.Fields.Single(f => f.Name == "_clip")));
-        ui.InsertBefore(target, ui.Create(OpCodes.Call, module.GetType("DuelDx.GameWindow").Methods.Single(m => m.Name == "get_Muted")));
+        ui.InsertBefore(target, ui.Create(OpCodes.Ldsfld, module.GetType("DuelDx.GameWindow").Fields.Single(f => f.Name == "Muted")));
         ui.InsertBefore(target, ui.Create(OpCodes.Call, clock)); update.Body.MaxStackSize += 3;
         log("PASS Bink starts with 750ms PCM prebuffer; movie source clock bounded by mixed PCM during decoder refill; muted/no-audio paths preserved");
     }

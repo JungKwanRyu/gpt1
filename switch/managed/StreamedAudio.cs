@@ -76,7 +76,6 @@ public static class StreamedAudio
         if (channels is not (1 or 2) || mix.Length != 3528 || !double.IsFinite(step) || step <= 0 || step > 16 ||
             !double.IsFinite(position) || position < 0 || position > 1e12) throw new InvalidDataException("Invalid streaming PCM shape");
         if (!float.IsFinite(left) || !float.IsFinite(right)) left = right = 0;
-        if (Math.Abs(left) > 8 || Math.Abs(right) > 8) throw new InvalidDataException("Invalid streaming PCM gain");
         lock (state)
         {
             state.Channels = channels; state.Rate = (int)Math.Round(step * 44100);
@@ -88,7 +87,7 @@ public static class StreamedAudio
             int count = state.Complete ? 1764 : (int)Math.Clamp(Math.Ceiling((available - 1 - position) / step), 0, 1764);
             if (count > 0 && available > 0)
             {
-                if (SwitchRaster.UseNative)
+                if (SwitchRaster.UseNative && Math.Abs(left) <= 8 && Math.Abs(right) <= 8)
                     SwitchMixer.MixNative(samples, available, channels, step, left, right, loop,
                         ref position, ref laps, mix, count);
                 else

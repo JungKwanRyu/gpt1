@@ -2,7 +2,7 @@ using System.Diagnostics;
 namespace WogSwitch;
 public static class DetailProfiler
 {
-    private static readonly string[] names = { "talk-window", "talk-lines", "talk-scale", "talk-face-row", "field-layers", "field-backdrop" };
+    private static readonly string[] names = { "talk-window", "talk-lines", "talk-scale", "talk-face", "field-layers", "field-backdrop" };
     private static readonly long[] starts = new long[6], totals = new long[6], calls = new long[6], maximum = new long[6];
     public static void Begin(int phase) => starts[phase] = Stopwatch.GetTimestamp();
     public static void End(int phase)
