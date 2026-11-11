@@ -26,7 +26,7 @@ internal static class EffectRasterPatches
                 var guard=code.First(i=>i.OpCode.FlowControl==FlowControl.Cond_Branch);
                 start=guard.Next.OpCode==OpCodes.Ret?(Instruction)guard.Operand:guard.Next;
             } else {
-                var get=code.Single(i=>i.Operand is MethodReference r && r.Name=="get_Color");
+                var get=code.Single(i=>i.Operand is FieldReference r && r.Name=="Item4" && r.DeclaringType.FullName.StartsWith("System.ValueTuple`5"));
                 if(get.Next.OpCode==OpCodes.Stfld) {
                     var f=(FieldReference)get.Next.Operand;
                     var v=method.Body.Variables.Single(v=>v.VariableType.FullName==f.DeclaringType.FullName);
