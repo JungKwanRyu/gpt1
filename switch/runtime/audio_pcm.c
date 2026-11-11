@@ -44,3 +44,44 @@ int wog_pcm_write(WogPcm *s, const uint8_t *bytes, size_t count, WogPcmEmit emit
     }
     return 1;
 }
+
+#include <math.h>
+
+/* Float temporaries prevent a target-dependent fused multiply-add from changing
+   the PCM bits relative to the original managed sample interpolation. */
+static int32_t voice_sample(int16_t a, int16_t b, float fraction, float gain)
+{
+    volatile float delta = ((float)b - (float)a) * fraction;
+    volatile float value = (float)a + delta;
+    volatile float scaled = value * gain;
+    return (int32_t)scaled;
+}
+
+int wog_mix_voice(const int16_t *samples, int frames, int channels, double step,
+    float left, float right, int loop, double *position, int *laps, int32_t *mix, int output_frames)
+{
+    if (!samples || !position || !laps || !mix || frames <= 0 || (channels != 1 && channels != 2) ||
+        !isfinite(step) || step <= 0 || step > 16 || !isfinite(*position) || *position < 0 || *position > 1e12 ||
+        output_frames < 0 || output_frames > 1764) return 0;
+    if (!isfinite(left) || !isfinite(right)) left = right = 0;
+    if (fabsf(left) > 8 || fabsf(right) > 8) return 0;
+    double pos = *position;
+    for (int i = 0; i < output_frames; i++) {
+        int64_t index = (int64_t)pos;
+        if (index >= frames) {
+            if (!loop) { *position = pos; return 0; }
+            pos -= frames * floor(pos / frames);
+            *laps = (int32_t)((uint32_t)*laps + 1u);
+            index = (int64_t)pos;
+        }
+        int64_t next = index + 1 < frames ? index + 1 : loop ? 0 : index;
+        float fraction = (float)(pos - index);
+        int32_t l = voice_sample(samples[index * channels], samples[next * channels], fraction, left);
+        int32_t r = voice_sample(samples[index * channels + (channels == 2)], samples[next * channels + (channels == 2)], fraction, right);
+        mix[2*i] = (int32_t)((uint32_t)mix[2*i] + (uint32_t)l);
+        mix[2*i+1] = (int32_t)((uint32_t)mix[2*i+1] + (uint32_t)r);
+        pos += step;
+    }
+    *position = pos;
+    return 1;
+}

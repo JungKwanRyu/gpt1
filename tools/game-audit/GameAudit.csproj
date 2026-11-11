@@ -7,6 +7,9 @@
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="../../switch/managed/ViewportClearPatches.cs" Link="ViewportClearPatches.cs" />
+    <Compile Include="../../switch/managed/AudioMixerPatches.cs" Link="AudioMixerPatches.cs" />
+    <Compile Include="../../switch/managed/SwitchMixer.cs" Link="SwitchMixer.cs" />
     <Compile Include="../../switch/managed/StartupMetrics.cs" Link="StartupMetrics.cs" />
     <Compile Include="../../switch/managed/StartupAssets.cs" Link="StartupAssets.cs" />
     <Compile Include="../../switch/managed/PatchIdentity.cs" Link="PatchIdentity.cs" />

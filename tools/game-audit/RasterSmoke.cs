@@ -24,6 +24,27 @@ internal static class RasterSmoke
         if (string.IsNullOrEmpty(library)) throw new InvalidOperationException("Real native raster test library required");
         nint handle = NativeLibrary.Load(Path.GetFullPath(library));
         NativeLibrary.SetDllImportResolver(typeof(SwitchRaster).Assembly, (name, assembly, path) => name == "WogSwitch" ? handle : 0);
+        SwitchRaster.UseNative = true;
+        var clear = type.GetMethod("SwitchClearViewport", flags)!;
+        int viewW = (int)type.GetProperty("ViewWidth", flags)!.GetValue(window)!;
+        int viewH = (int)type.GetProperty("ViewHeight", flags)!.GetValue(window)!;
+        foreach (var camera in new[] { (0, 0), (-19, -13), (width - 7, height - 9), (width + 3, height + 2), (35, 71) })
+        {
+            type.GetField("_camX", flags)!.SetValue(window, camera.Item1);
+            type.GetField("_camY", flags)!.SetValue(window, camera.Item2);
+            initial.CopyTo(fb, 0);
+            int x0 = Math.Clamp(camera.Item1, 0, width), x1 = Math.Clamp(camera.Item1 + viewW, 0, width);
+            for (int y = Math.Max(0, camera.Item2); y < Math.Min(height, camera.Item2 + viewH) && x0 < x1; y++)
+                fb.AsSpan(y * width + x0, x1 - x0).Fill(0xff14100cu);
+            uint[] expected = (uint[])fb.Clone(); initial.CopyTo(fb, 0);
+            if (!Equals(clear.Invoke(window, null), true) || !fb.SequenceEqual(expected))
+                throw new InvalidDataException("Native viewport clear differs from original clipped span fill");
+        }
+        SwitchRaster.UseNative = false;
+        initial.CopyTo(fb, 0);
+        if (!Equals(clear.Invoke(window, null), false) || !fb.SequenceEqual(initial))
+            throw new InvalidDataException("Viewport clear fallback modified framebuffer");
+        Console.WriteLine("PASS native viewport clear matches original visible rectangle, negative/edge/outside camera and PC fallback");
         foreach (bool native in new[] { false, true })
         {
             SwitchRaster.UseNative = native;
