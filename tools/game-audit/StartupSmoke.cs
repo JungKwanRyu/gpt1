@@ -55,6 +55,7 @@ internal static class StartupSmoke
         if (ask.Invoke(null, new object?[] { null, "test" }) != null || notices != 2) throw new InvalidDataException("Report dialogs did not execute their notice/cancel replacements");
         Console.WriteLine("PASS report UI entry points execute the host notice and cancel without WinForms controls");
         try { PlatformGameBridge.Exit(7); } catch (GameExitException ex) when (ex.ExitCode == 7) { Console.WriteLine("PASS controlled game exit preserves the host process"); }
+        StartupAssetsSmoke.Run(output);
         RasterSmoke.Run(game);
         SharedRasterSmoke.Run(game, root);
         FieldRasterSmoke.Run(game);

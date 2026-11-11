@@ -17,6 +17,7 @@ on:
       - tools/test_native_raster.py
       - tools/test_pc_preparation.py
       - switch/runtime/**
+      - tools/update_patch_identity.py
       - switch/managed/**
       - .github/workflows/wogswitch-game-audit.yml
 permissions:
@@ -47,6 +48,8 @@ jobs:
                   data = response.read()
               assert hashlib.sha256(data).hexdigest() == expected
               (target / name).write_bytes(data)
+      - name: Verify patch-code cache identity
+        run: python3 tools/update_patch_identity.py --check
       - name: Adapt the verified patcher to the Switch BCL
         run: dotnet run --project tools/runtime-compat/RuntimeCompat.csproj -c Release -- switch/managed/lib/WogPatcher.dll output/game-audit/runtime-compatibility.json
       - name: Fetch the pinned public PC release for compatibility testing

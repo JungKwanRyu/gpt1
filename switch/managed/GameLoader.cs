@@ -13,7 +13,7 @@ internal sealed record LoadedGame(string Version, int Assemblies, string EntryPo
 
 internal static class GameLoader
 {
-    private const string CacheVersion = "wog-switch-loader-0.5-v1";
+    private const string CacheVersion = "wog-switch-loader-cache-v2";
 
     internal static string Digest(string filename)
     {
@@ -28,9 +28,28 @@ internal static class GameLoader
         Version? version = null;
         foreach (string name in GamePatcher.GameAssemblies)
         {
-            Diagnostics.Step("inspect original DLL " + name, log);
-            string file = Path.Combine(settings.ReleaseDir, name);
-            if (!File.Exists(file)) throw new FileNotFoundException("Copy the PC release DLL into release/: " + name, file);
+            string file=Path.Combine(settings.ReleaseDir,name);
+            if(!File.Exists(file))throw new FileNotFoundException("Copy the PC release DLL into release/: "+name,file);
+            Diagnostics.Step("SHA256 original DLL " + name, log);
+            hashes[name]=Digest(file);
+        }
+        if (!File.Exists(settings.ShimPath)) throw new FileNotFoundException("Bundled WogShim missing", settings.ShimPath);
+        string patcherPath = Path.Combine(settings.Root, "managed", "WogPatcher.dll");
+        if (!File.Exists(patcherPath)) throw new FileNotFoundException("Bundled WogPatcher missing", patcherPath);
+        Diagnostics.Step("compute patch cache identity", log);
+        string material = CacheVersion + "\n" + PlatformPatches.Version + "\n" + PatchIdentity.Value + "\n" + typeof(PlatformGameBridge).Assembly.GetName().Name + ":" + typeof(PlatformGameBridge).Assembly.GetName().Version +
+            "\n" + Digest(settings.ShimPath) + "\n" + Digest(patcherPath) + "\n" +
+            string.Join("\n", GamePatcher.GameAssemblies.Select(n => n + ":" + hashes[n]));
+        string key;
+        using (var sha = SHA256.Create()) key = Convert.ToHexString(sha.ComputeHash(Encoding.UTF8.GetBytes(material))).ToLowerInvariant();
+        string directory = Path.Combine(settings.CacheRoot, key);
+        bool cached = CacheValid(directory);
+        if (!cached)
+        {
+            foreach(string name in GamePatcher.GameAssemblies)
+            {
+                Diagnostics.Step("inspect original DLL "+name,log);
+                string file=Path.Combine(settings.ReleaseDir,name);
             using var assembly = AssemblyDefinition.ReadAssembly(file);
             if (assembly.Name.Name != Path.GetFileNameWithoutExtension(name))
                 throw new InvalidDataException("DLL filename and assembly identity differ: " + name);
@@ -42,22 +61,8 @@ internal static class GameLoader
             if (version != null && version != assembly.Name.Version)
                 throw new InvalidDataException("The two game DLL versions differ; copy both from the same PC release.");
             version = assembly.Name.Version;
-            Diagnostics.Step("SHA256 original DLL " + name, log);
-            hashes[name] = Digest(file);
-        }
-        if (!File.Exists(settings.ShimPath)) throw new FileNotFoundException("Bundled WogShim missing", settings.ShimPath);
-        string patcherPath = Path.Combine(settings.Root, "managed", "WogPatcher.dll");
-        if (!File.Exists(patcherPath)) throw new FileNotFoundException("Bundled WogPatcher missing", patcherPath);
-        Diagnostics.Step("compute patch cache identity", log);
-        string material = CacheVersion + "\n" + PlatformPatches.Version + "\n" + typeof(PlatformGameBridge).Assembly.ManifestModule.ModuleVersionId +
-            "\n" + Digest(settings.ShimPath) + "\n" + Digest(patcherPath) + "\n" +
-            string.Join("\n", GamePatcher.GameAssemblies.Select(n => n + ":" + hashes[n]));
-        string key;
-        using (var sha = SHA256.Create()) key = Convert.ToHexString(sha.ComputeHash(Encoding.UTF8.GetBytes(material))).ToLowerInvariant();
-        string directory = Path.Combine(settings.CacheRoot, key);
-        bool cached = CacheValid(directory);
-        if (!cached)
-        {
+            }
+
             if (System.IO.Directory.Exists(directory))
             {
                 string preserved = directory + ".incomplete-" + DateTime.UtcNow.Ticks;
@@ -88,17 +93,19 @@ internal static class GameLoader
                 if (patched.Name.Version != version) throw new InvalidDataException("Patched DLL version mismatch: " + name);
             }
             VerifySources(settings, hashes);
+            File.WriteAllText(Path.Combine(directory, "source-version.txt"), version!.ToString());
             File.WriteAllLines(Path.Combine(directory, "complete.sha256"),
                 CacheFiles().Select(name => Digest(Path.Combine(directory, name)) + "  " + name));
         }
-        VerifySources(settings, hashes);
+        else version=Version.Parse(File.ReadAllText(Path.Combine(directory,"source-version.txt")));
+        if(cached) VerifySources(settings, hashes);
         string[] missing = File.ReadAllLines(Path.Combine(directory, "missing.txt"));
         log("PASS original game DLL patch preparation; version=" + version + "; cache=" + (cached ? "verified hit" : "built"));
         log("Compatibility report: " + missing.Length + " unresolved items; game execution remains unverified");
         return new PreparedGame(directory, version!.ToString(), cached, missing, hashes);
     }
 
-    private static IEnumerable<string> CacheFiles() => GamePatcher.GameAssemblies.Concat(new[] { "compatibility.txt", "missing.txt", "upstream-compatibility.txt", "platform-patches.txt" });
+    private static IEnumerable<string> CacheFiles() => GamePatcher.GameAssemblies.Concat(new[] { "compatibility.txt", "missing.txt", "upstream-compatibility.txt", "platform-patches.txt", "source-version.txt" });
 
     private static bool CacheValid(string directory)
     {
@@ -164,7 +171,7 @@ internal static class GameLoader
 
     internal static string[] Run(LauncherSettings settings, Action<string> log, Action<LoadedGame>? loadedCallback = null)
     {
-        var report = new List<string> { "WogSwitch 0.5.12 game DLL patch/load check", "Load check status: in progress", "Main invoked: no",
+        var report = new List<string> { "WogSwitch 0.5.13 game DLL patch/load check", "Load check status: in progress", "Main invoked: no",
             "PC release: " + settings.ReleaseDir, "Part 2 folder detected: " + settings.Part2Present,
             "Part 1 folder detected: " + settings.Part1Present, "Game assets/characters detected: " +
                 System.IO.Directory.Exists(Path.Combine(settings.GameAssets, "characters")) };

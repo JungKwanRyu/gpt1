@@ -53,7 +53,9 @@ internal static class LoaderSmoke
         Require(File.ReadAllText(Path.Combine(first.Directory, "upstream-compatibility.txt")).Contains("missing 90"), "the original 90-item report is preserved separately");
         PerformanceSmoke.Verify(release, first.Directory, settings, output);
         RuntimeApiAudit.RunGames(output, first.Directory);
-        var second = GameLoader.Prepare(settings, Console.WriteLine);
+        bool reparsed=false;
+        var second = GameLoader.Prepare(settings,line=>{if(line.StartsWith("STEP inspect original DLL"))reparsed=true;Console.WriteLine(line);});
+        Require(!reparsed,"verified cache hit avoids repeated source DLL metadata parsing");
         Require(second.CacheHit && second.Directory == first.Directory && second.Missing.SequenceEqual(first.Missing), "cache reuse verifies DLL hashes and keeps the compatibility warnings");
         File.AppendAllText(Path.Combine(first.Directory, "WarOfGenesis.dll"), "tampered-cache");
         var repaired = GameLoader.Prepare(settings, Console.WriteLine);
@@ -79,7 +81,7 @@ internal static class LoaderSmoke
         bool freshReportObserved = false;
         string[] summary = GameLoader.Run(settings, line => {
             string current = File.ReadAllText(settings.ReportPath);
-            if (line.StartsWith("STEP inspect original DLL"))
+            if (line.StartsWith("STEP SHA256 original DLL"))
                 freshReportObserved = !current.Contains("STALE_PREVIOUS_SUCCESS") && current.Contains(line) && current.Contains("Load check status: in progress");
             Console.WriteLine(line);
         });

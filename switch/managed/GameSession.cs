@@ -8,10 +8,11 @@ internal static class GameSession
 {
     internal static int Start(LauncherSettings settings, Action<string> log, Func<int>? presentedFrames = null, LoadedGame? preloaded = null)
     {
+        StartupMetrics.Reset(log);
         string report = Path.Combine(settings.Root, "game-start.txt");
         // Persist before entering the game and before calling native logging.
         // A native abort cannot execute our managed finally block.
-        File.WriteAllLines(report, new[] { "WogSwitch 0.5.12 game startup", "Main invoked: no", "Frames observed at start: 0" });
+        File.WriteAllLines(report, new[] { "WogSwitch 0.5.13 game startup", "Main invoked: no", "Frames observed at start: 0" });
         void Record(string line) { File.AppendAllText(report, line + "\n"); log(line); }
         Record("STEP game session entered; journal persisted before Main");
         object? oldBase = AppContext.GetData("APP_CONTEXT_BASE_DIRECTORY");
@@ -30,7 +31,8 @@ internal static class GameSession
             else loaded = GameLoader.Load(GameLoader.Prepare(settings, Record), Record);
             if (loaded.Missing != 0) throw new NotSupportedException("Game start blocked by unresolved patch items: " + loaded.Missing);
             PlatformGameBridge.Configure(settings);
-            bool complete = File.Exists(Path.Combine(settings.GameAssets, "data/TXR/Txr.dat")) && Directory.Exists(Path.Combine(settings.GameAssets, "characters"));
+            string runtimeAssets = StartupAssets.Select(settings, Record);
+            bool complete = File.Exists(Path.Combine(runtimeAssets, "data/TXR/Txr.dat")) && Directory.Exists(Path.Combine(runtimeAssets, "characters"));
             bool shipped = Directory.Exists(Path.Combine(settings.ReleaseDir, "assets/characters")) && File.Exists(Path.Combine(settings.ReleaseDir, "assets/originals.txt"));
             if (!complete && !shipped)
                 throw new DirectoryNotFoundException("Copy the PC release assets folder (including characters and originals.txt) into release/assets before starting.");
@@ -41,8 +43,9 @@ internal static class GameSession
             Environment.SetEnvironmentVariable("WAROFGENESIS_ORIGINAL", settings.Part2Present ? settings.OriginalPart2 : null);
             Environment.SetEnvironmentVariable("WAROFGENESIS_PART1", settings.Part1Present ? settings.OriginalPart1 : null);
             // An incomplete shipped assets directory must go through OriginalAssets.Prepare.
-            Environment.SetEnvironmentVariable("WAROFGENESIS_ASSETS", complete ? settings.GameAssets : null);
+            Environment.SetEnvironmentVariable("WAROFGENESIS_ASSETS", complete ? runtimeAssets : null);
             AppContext.SetData("APP_CONTEXT_BASE_DIRECTORY", settings.ReleaseDir + Path.DirectorySeparatorChar);
+            StartupMetrics.Mark("X to Main invocation");
             Record("Main invoked: yes — " + loaded.Main.DeclaringType!.FullName + "." + loaded.Main.Name);
             try
             {

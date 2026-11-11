@@ -8,14 +8,14 @@ internal static class RenderPanel
     internal const string Korean = "창세기전 스위치 포팅";
     internal const string Sample = "한글 이미지 렌더링 테스트";
 
-    internal static SKBitmap Create(string fontFile, bool pressed, string[]? status = null)
+    internal static SKBitmap Create(string fontFile, bool pressed, string[]? status = null, bool diagnostics = true)
     {
         if (!File.Exists(fontFile)) throw new FileNotFoundException("Bundled Korean font missing", fontFile);
         using var face = SKTypeface.FromFile(fontFile) ?? throw new InvalidOperationException("Korean font load failed");
-        foreach (char c in Korean + Sample)
+        if (diagnostics) foreach (char c in Korean + Sample)
             if (!char.IsWhiteSpace(c) && !face.ContainsGlyph(c))
                 throw new InvalidOperationException("Missing Korean glyph U+" + ((int)c).ToString("X4"));
-        Program.Log("PASS Korean glyph coverage: all sample Hangul characters present");
+        if (diagnostics) Program.Log("PASS Korean glyph coverage: all sample Hangul characters present");
         var bitmap = new SKBitmap(new SKImageInfo(Width, Height, SKColorType.Rgba8888, SKAlphaType.Premul));
         try
         {
@@ -27,13 +27,15 @@ internal static class RenderPanel
             using var title = new SKFont(face, 54) { Edging = SKFontEdging.Antialias };
             canvas.DrawText(Korean, 64, 98, title, paint);
             using var body = new SKFont(face, 34) { Edging = SKFontEdging.Antialias };
-            canvas.DrawText(Sample, 64, 218, body, paint);
+            canvas.DrawText(diagnostics ? Sample : "게임 실행 준비", 64, 218, body, paint);
             paint.Color = new SKColor(170, 196, 220);
             using var small = new SKFont(face, 25) { Edging = SKFontEdging.Antialias };
-            canvas.DrawText("SkiaSharp 3.119 / native Switch raster", 64, 264, small, paint);
+            canvas.DrawText(diagnostics ? "SkiaSharp 3.119 / native Switch raster" : "0.5.13", 64, 264, small, paint);
             canvas.DrawText(pressed ? "A 입력 확인 — 색상 변경 성공" : "A 버튼: 색상 변경    PLUS: 종료", 64, 638, body, paint);
-            canvas.DrawText("이미지: PNG 저장 → 디코딩 → 확대 출력", 64, 690, small, paint);
+            canvas.DrawText(diagnostics ? "이미지: PNG 저장 → 디코딩 → 확대 출력" : "X: 게임 시작    PLUS: 종료", 64, 690, small, paint);
 
+            if (diagnostics)
+            {
             // Exercise the actual PNG encoder and decoder used by the runtime.
             using var tile = new SKBitmap(new SKImageInfo(64, 64, SKColorType.Rgba8888, SKAlphaType.Premul));
             using (var tileCanvas = new SKCanvas(tile))
@@ -54,6 +56,7 @@ internal static class RenderPanel
             canvas.DrawText("한글 가나다라마", 380, 366, body, paint);
             canvas.DrawText("이미지와 글꼴이 함께 표시됩니다", 380, 422, small, paint);
             canvas.DrawText("0.5 — X 버튼으로 게임 시작 시도", 380, 478, small, paint);
+            }
             if (status != null)
             {
                 paint.Color = new SKColor(13, 23, 42);
@@ -66,6 +69,8 @@ internal static class RenderPanel
             canvas.Flush();
 
             // Reject blank/missing output rather than counting a glyph lookup alone.
+            if (diagnostics)
+            {
             int changed = 0;
             unsafe
             {
@@ -77,6 +82,7 @@ internal static class RenderPanel
             }
             if (changed < 100) throw new InvalidOperationException("Korean raster output is blank");
             Program.Log("PASS Korean text raster: " + changed + " non-background pixels");
+            }
             return bitmap;
         }
         catch { bitmap.Dispose(); throw; }

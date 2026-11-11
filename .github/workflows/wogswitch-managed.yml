@@ -8,6 +8,7 @@ on:
       - codex/wogswitch-startup
       - codex/wogswitch-runtime-fix
     paths:
+      - tools/update_patch_identity.py
       - switch/managed/**
       - tools/runtime-compat/**
       - .github/workflows/wogswitch-managed.yml
@@ -39,6 +40,8 @@ jobs:
               (target / name).write_bytes(raw)
               print("Verified original public DLL:", name)
           
+      - name: Verify patch-code cache identity
+        run: python3 tools/update_patch_identity.py --check
       - name: Adapt the verified original patcher to the Switch BCL
         run: dotnet run --project tools/runtime-compat/RuntimeCompat.csproj -c Release -- switch/managed/lib/WogPatcher.dll output/managed/runtime-compatibility.json
       - name: Build the platform-neutral managed host
@@ -65,7 +68,7 @@ jobs:
         run: dotnet output/managed/WogSwitch.Managed.dll --desktop-smoke | tee output/desktop-smoke.log
       - uses: actions/upload-artifact@v4
         with:
-          name: WogSwitch-managed-0.5.12
+          name: WogSwitch-managed-0.5.13
           path: |
             output/managed/*.dll
             output/managed/*.json
@@ -85,7 +88,7 @@ jobs:
           dotnet-version: 10.0.x
       - uses: actions/download-artifact@v4
         with:
-          name: WogSwitch-managed-0.5.12
+          name: WogSwitch-managed-0.5.13
           path: work/published
       - name: Fetch and prepare the pinned public fixture
         run: |

@@ -77,6 +77,12 @@ internal static class SceneRasterPatches
             writer.InsertBefore(end, writer.Create(OpCodes.Call, helper));
             foreach (var instruction in removed) writer.Remove(instruction);
             draw.Body.MaxStackSize = Math.Max(draw.Body.MaxStackSize, 5);
+            if (target.Item1 is "DuelDx.TitleScreen" or "DuelDx.Part1TitleScreen")
+            {
+                var lastReturn=draw.Body.Instructions.Last();
+                if(lastReturn.OpCode!=OpCodes.Ret)throw new InvalidDataException("Title return changed");
+                writer.InsertBefore(lastReturn,writer.Create(OpCodes.Call,module.ImportReference(typeof(StartupMetrics).GetMethod(nameof(StartupMetrics.MarkTitleDrawn))!)));
+            }
             log("PASS native opaque backdrop replaces per-pixel loop: " + draw.FullName);
         }
 

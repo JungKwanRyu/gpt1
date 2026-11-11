@@ -7,6 +7,9 @@
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="../../switch/managed/StartupMetrics.cs" Link="StartupMetrics.cs" />
+    <Compile Include="../../switch/managed/StartupAssets.cs" Link="StartupAssets.cs" />
+    <Compile Include="../../switch/managed/PatchIdentity.cs" Link="PatchIdentity.cs" />
     <Compile Include="../../switch/managed/GameLoader.cs" Link="GameLoader.cs" />
     <Compile Include="../../switch/managed/LauncherSettings.cs" Link="LauncherSettings.cs" />
     <Compile Include="../../switch/managed/PlatformPatches.cs" Link="PlatformPatches.cs" />

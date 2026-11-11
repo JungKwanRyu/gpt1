@@ -25,7 +25,7 @@ internal static class Program
             // when the embedded runtime formats its own error messages.
             AppContext.SetSwitch("System.Resources.UseSystemResourceKeys", true);
             if (prepareSd) return DesktopPreparation.Run(args[1], Log);
-            Log("Managed checkpoint 0.5.12: shared native sprite/fade kernels and pause-aware frame timings");
+            Log("Managed checkpoint 0.5.13: shared native sprite/fade kernels and pause-aware frame timings");
             string root = desktop ? Path.GetTempPath() : "/switch/WogSwitchProbe";
             var layout = new GameLayout(Path.Combine(root, "release"), Path.Combine(root, "patched"),
                 Path.Combine(root, "save"), null, Path.Combine(root, "managed/WogShim.dll"));
@@ -39,9 +39,9 @@ internal static class Program
             Require(ReferenceEquals(Host.Current, host), "Host.Use / Host.Current");
             Log("PASS WogShim method execution: Host.Use and Host.Current");
 
-            JpegSmoke.Verify(Log);
+            if (desktop) JpegSmoke.Verify(Log);
             string shimPath = Path.Combine(AppContext.BaseDirectory, "WogShim.dll");
-            using (AssemblyDefinition assembly = AssemblyDefinition.ReadAssembly(shimPath))
+            if (desktop) using (AssemblyDefinition assembly = AssemblyDefinition.ReadAssembly(shimPath))
                 Require(assembly.Name.Name == "WogShim", "Mono.Cecil original DLL inspection");
             Log("PASS Mono.Cecil 0.11.6: original WogShim DLL parsed");
 
@@ -110,11 +110,12 @@ internal static class Program
                 XInput.Poll = host.ReadPad;
                 string fontFile = Path.Combine(root, "assets/NanumGothic.ttf");
                 Fonts.OverrideFile = fontFile;
-                using var panel = RenderPanel.Create(fontFile, false, status);
-                RenderPanel.Save(panel, Path.Combine(root, "render.png"));
+                using var panel = RenderPanel.Create(fontFile, false, status, diagnostics: desktop);
+                if (desktop) RenderPanel.Save(panel, Path.Combine(root, "render.png"));
                 Require(Native.wog_upload_bitmap(panel.GetPixels(), panel.Width, panel.Height, panel.RowBytes) != 0, "GPU bitmap upload");
                 Log("PASS Skia bitmap GPU upload");
                 PlatformGameBridge.Notice = text => host.ShowMessage("스위치 안내", text);
+                Log("STARTUP X ready; managed-entry elapsed=" + patchClock.Elapsed.TotalSeconds.ToString("F2", System.Globalization.CultureInfo.InvariantCulture) + "s");
                 Log("DISPLAY TEST: A changes banner; X invokes real game Main once; PLUS exits.");
                 bool lastPressed = false;
                 bool padLogged = false;
@@ -133,8 +134,8 @@ internal static class Program
                         finally { host.EndGame(); }
                         status = new[] { "게임 시작 시도 종료 — code " + code, "게임 호스트 출력 프레임 " + host.Frames,
                             "자세한 결과: game-start.txt", "다시 시도하려면 앱을 재실행해 주세요" };
-                        using var resultPanel = RenderPanel.Create(fontFile, false, status);
-                        RenderPanel.Save(resultPanel, Path.Combine(root, "render.png"));
+                        using var resultPanel = RenderPanel.Create(fontFile, false, status, diagnostics: desktop);
+                        if (desktop) RenderPanel.Save(resultPanel, Path.Combine(root, "render.png"));
                         Require(Native.wog_upload_bitmap(resultPanel.GetPixels(), resultPanel.Width, resultPanel.Height, resultPanel.RowBytes) != 0, "Startup result upload");
                     }
                     lastX = x;
@@ -145,7 +146,7 @@ internal static class Program
                     }
                     if (pressed != lastPressed)
                     {
-                        using var updated = RenderPanel.Create(fontFile, pressed, status);
+                        using var updated = RenderPanel.Create(fontFile, pressed, status, diagnostics: desktop);
                         Require(Native.wog_upload_bitmap(updated.GetPixels(), updated.Width, updated.Height, updated.RowBytes) != 0, "Updated bitmap upload");
                         lastPressed = pressed;
                     }
