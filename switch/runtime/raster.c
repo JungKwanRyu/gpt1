@@ -125,3 +125,22 @@ void wog_field_backdrop(uint32_t *dst, int dw, int dh, const uint32_t *bg, int b
         }
     }
 }
+
+void wog_transform(uint32_t *dst, int dw, int x0, int y0, int x1, int y1, int mode, uint32_t color, int power)
+{
+    for (int y=y0;y<y1;y++) for(int x=x0;x<x1;x++) {
+        uint32_t c=dst[y*dw+x], out;
+        if(mode==0) {
+            unsigned g=(7*((c>>16)&255)+2*((c>>8)&255)+(c&255))/10;
+            out=0xff000000u|g<<16|g<<8|g;
+        } else {
+            out=mode==1?0xff000000u:c&0xff000000u;
+            for(int s=0;s<=16;s+=8) {
+                int v=(c>>s)&255;
+                int n=mode==1?v*power/31:v+(((int)((color>>s)&255)-v)*power)/31;
+                out|=(uint32_t)n<<s;
+            }
+        }
+        dst[y*dw+x]=out;
+    }
+}

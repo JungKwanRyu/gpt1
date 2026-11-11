@@ -405,7 +405,7 @@ static void *bridge_symbol(void *handle, const char *name, char **err, void *use
     EXPORT(wog_dialog_begin); EXPORT(wog_dialog_end);
     EXPORT(wog_audio_open); EXPORT(wog_audio_write); EXPORT(wog_audio_played);
     EXPORT(wog_audio_flush); EXPORT(wog_audio_close); EXPORT(wog_blit_opaque);
-    EXPORT(wog_draw_frame); EXPORT(wog_fill_rect); EXPORT(wog_blit_masked); EXPORT(wog_field_backdrop);
+    EXPORT(wog_draw_frame); EXPORT(wog_fill_rect); EXPORT(wog_blit_masked); EXPORT(wog_field_backdrop); EXPORT(wog_transform);
 #undef EXPORT
     stage("FAIL unknown bridge export: %s", name);
     return NULL;

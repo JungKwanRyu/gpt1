@@ -89,6 +89,9 @@ static int ensure_writable(void)
     return 1;
 }
 
+#ifndef WOG_AUDIO_TEST
+static uint64_t last_submit_tick, longest_submit_gap, diagnostic_tick;
+#endif
 static int emit(void *unused, int16_t left, int16_t right)
 {
     (void)unused;
@@ -102,6 +105,17 @@ static int emit(void *unused, int16_t left, int16_t right)
     Result rc = audoutAppendAudioOutBuffer(buffer);
     if (R_FAILED(rc)) { error("append buffer", rc); return 0; }
     audio.queued[audio.write_index] = true;
+    #ifndef WOG_AUDIO_TEST
+    uint64_t tick=armGetSystemTick();
+    if(last_submit_tick && tick-last_submit_tick>longest_submit_gap) longest_submit_gap=tick-last_submit_tick;
+    last_submit_tick=tick;
+    if(!diagnostic_tick) diagnostic_tick=tick;
+    if(tick-diagnostic_tick>armGetSystemTickFreq()*5) {
+        char line[192]; int queued=0; for(int j=0;j<BLOCKS;j++) queued+=audio.queued[j];
+        snprintf(line,sizeof(line),"AUDIO supply max-submit-gap=%.1fms queued=%d/4 submitted=%llu",longest_submit_gap*1000.0/armGetSystemTickFreq(),queued,(unsigned long long)audio.submitted);
+        wog_log(line);longest_submit_gap=0;diagnostic_tick=tick;
+    }
+    #endif
     if (++audio.submitted == 1) wog_log("PASS audio PCM buffer submitted to audout");
     audio.write_index = (audio.write_index + 1) % BLOCKS;
     audio.filled = 0;

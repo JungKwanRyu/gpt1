@@ -16,7 +16,7 @@ public static class FrameProfiler
         Array.Clear(starts); Array.Clear(ticks); Array.Clear(counts);
         warmup = true; frames = lastFrame = maxInterval = 0; since = Stopwatch.GetTimestamp();
         logger = log; report = Path.Combine(root, "performance.log");
-        File.WriteAllText(report, "WogSwitch 0.5.11 frame wall times; draw includes swap; not GPU-only time; gaps over 60s recorded separately\n");
+        File.WriteAllText(report, "WogSwitch 0.5.12 frame wall times; draw includes swap; not GPU-only time; gaps over 60s recorded separately\n");
     }
 
     public static void Begin(int phase) => BeginAt(phase, Stopwatch.GetTimestamp());

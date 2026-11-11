@@ -5,7 +5,7 @@ namespace WogSwitch;
 
 internal static class PlatformPatches
 {
-    internal const string Version = "switch-platform-0.5.11-v1";
+    internal const string Version = "switch-platform-0.5.12-v1";
 
     internal static void Apply(string directory, Action<string> log)
     {
@@ -28,6 +28,8 @@ internal static class PlatformPatches
             SceneRasterPatches.Apply(module, log);
             FieldRasterPatches.Apply(module, log);
             SharedRasterPatches.Apply(module, log);
+            VideoPlaybackPatches.Apply(module, log);
+            EffectRasterPatches.Apply(module, log);
             WriteAndReplace(assembly, path);
         }
         path = Path.Combine(directory, "WarOfGenesis.Assets.dll");

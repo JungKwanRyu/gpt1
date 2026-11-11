@@ -89,6 +89,29 @@ public static class SwitchRaster
         return true;
     }
 
+    public static bool TryVideoCopy(uint[] dst, int dw, int dh, uint[] src, int sw, int sh, int cx, int cy, int vw, int vh)
+    {
+        if (!UseNative || sw != vw || sh != vh || !Valid(dst, dw, dh, src, sw, sh)) return false;
+        BlitOpaque(dst, dw, dh, src, sw, sh, cx, cy);
+        return true;
+    }
+
+    public static unsafe void Transform(uint[] dst, int dw, int dh, int x, int y, int w, int h, int mode, uint color, int power)
+    {
+        if (dw <= 0 || dh <= 0 || (long)dw * dh > dst.Length || mode < 0 || mode > 2 || power < 0 || power > 31) throw new ArgumentException("Invalid transform");
+        int x0=Math.Max(0,x), y0=Math.Max(0,y), x1=(int)Math.Min(dw,(long)x+w), y1=(int)Math.Min(dh,(long)y+h);
+        if(x0>=x1 || y0>=y1) return;
+        if(UseNative) { fixed(uint* p=dst) wog_transform(p,dw,x0,y0,x1,y1,mode,color,power); return; }
+        for(int yy=y0;yy<y1;yy++) for(int xx=x0;xx<x1;xx++) {
+            int i=yy*dw+xx; uint c=dst[i], result;
+            if(mode==0) { uint g=(7*((c>>16)&255)+2*((c>>8)&255)+(c&255))/10; result=0xff000000|g<<16|g<<8|g; }
+            else { result=mode==1?0xff000000:c&0xff000000; for(int shift=0;shift<=16;shift+=8) { int v=(int)(c>>shift&255); int n=mode==1?v*power/31:v+((int)(color>>shift&255)-v)*power/31; result|=(uint)n<<shift; } }
+            dst[i]=result;
+        }
+    }
+    [DllImport("WogSwitch", CallingConvention=CallingConvention.Cdecl)]
+    private static extern unsafe void wog_transform(uint* dst,int dw,int x0,int y0,int x1,int y1,int mode,uint color,int power);
+
     private static bool Valid(uint[] dst, int w, int h, uint[] src, int sw, int sh) =>
         w > 0 && h > 0 && sw > 0 && sh > 0 && (long)w * h <= dst.Length && (long)sw * sh <= src.Length;
 

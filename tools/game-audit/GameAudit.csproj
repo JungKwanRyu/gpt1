@@ -18,6 +18,8 @@
     <Compile Include="../../switch/managed/PatchValidation.cs" Link="PatchValidation.cs" />
     <Compile Include="../../switch/managed/ProgressLogLimiter.cs" Link="ProgressLogLimiter.cs" />
     <Compile Include="../../switch/managed/SceneRasterPatches.cs" Link="SceneRasterPatches.cs" />
+    <Compile Include="../../switch/managed/EffectRasterPatches.cs" Link="EffectRasterPatches.cs" />
+    <Compile Include="../../switch/managed/VideoPlaybackPatches.cs" Link="VideoPlaybackPatches.cs" />
     <Compile Include="../../switch/managed/FieldRasterPatches.cs" Link="FieldRasterPatches.cs" />
     <Compile Include="../../switch/managed/SwitchRaster.cs" Link="SwitchRaster.cs" />
     <Compile Include="../../switch/managed/FrameProfiler.cs" Link="FrameProfiler.cs" />
