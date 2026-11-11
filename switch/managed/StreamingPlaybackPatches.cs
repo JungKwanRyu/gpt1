@@ -26,6 +26,7 @@ internal static class StreamingPlaybackPatches
         il.InsertAfter(finished, il.Create(OpCodes.Call, module.ImportReference(typeof(StreamedAudio).GetMethod(nameof(StreamedAudio.Finish))!)));
         il.InsertAfter(finished, il.Create(OpCodes.Ldarg_1));
         loop.Body.MaxStackSize += 2;
+        PlatformPatches.ExpandShortBranches(loop);
         var sound = type.Methods.Single(m => m.Name == "get_Sound");
         var soundType = sound.ReturnType.Resolve();
         var samples = soundType.Methods.Single(m => m.Name == "get_Samples");
@@ -39,6 +40,7 @@ internal static class StreamingPlaybackPatches
                 writer.InsertBefore(next, writer.Create(OpCodes.Callvirt, samples));
                 writer.InsertBefore(next, writer.Create(OpCodes.Call, module.ImportReference(typeof(StreamedAudio).GetMethod(nameof(StreamedAudio.Begin))!)));
             }
+            PlatformPatches.ExpandShortBranches(ctor);
         }
         var start = type.Methods.Single(m => m.Name == "Start" && m.IsStatic);
         var trace = start.Body.GetILProcessor(); var entry = start.Body.Instructions[0];
@@ -48,6 +50,7 @@ internal static class StreamingPlaybackPatches
             ret.OpCode = OpCodes.Call; ret.Operand = module.ImportReference(typeof(StreamedAudio).GetMethod(nameof(StreamedAudio.EndOpen))!);
             trace.InsertAfter(ret, trace.Create(OpCodes.Ret));
         }
+        PlatformPatches.ExpandShortBranches(start);
         log("PASS Bink PCM publishes only copied samples; decoder finally marks completion; incremental prebuffer enabled");
     }
 
@@ -96,6 +99,7 @@ internal static class StreamingPlaybackPatches
         ui.InsertBefore(target, ui.Create(OpCodes.Ldarg_0)); ui.InsertBefore(target, ui.Create(OpCodes.Ldfld, cut.Fields.Single(f => f.Name == "_clip")));
         ui.InsertBefore(target, ui.Create(OpCodes.Ldsfld, module.GetType("DuelDx.GameWindow").Fields.Single(f => f.Name == "Muted")));
         ui.InsertBefore(target, ui.Create(OpCodes.Call, clock)); update.Body.MaxStackSize += 3;
+        PlatformPatches.ExpandShortBranches(update);
         log("PASS Bink starts with 750ms PCM prebuffer; movie source clock bounded by mixed PCM during decoder refill; muted/no-audio paths preserved");
     }
 }

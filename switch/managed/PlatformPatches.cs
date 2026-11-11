@@ -247,6 +247,18 @@ internal static class PlatformPatches
         foreach (var caller in callers) caller.Operand = wrapper;
     }
 
+    internal static void ExpandShortBranches(MethodDefinition method)
+    {
+        foreach (var branch in method.Body.Instructions.Where(i => i.OpCode.OperandType == OperandType.ShortInlineBrTarget))
+            branch.OpCode = branch.OpCode.Code switch {
+                Code.Br_S => OpCodes.Br, Code.Brtrue_S => OpCodes.Brtrue, Code.Brfalse_S => OpCodes.Brfalse,
+                Code.Beq_S => OpCodes.Beq, Code.Bne_Un_S => OpCodes.Bne_Un, Code.Bge_S => OpCodes.Bge,
+                Code.Bge_Un_S => OpCodes.Bge_Un, Code.Bgt_S => OpCodes.Bgt, Code.Bgt_Un_S => OpCodes.Bgt_Un,
+                Code.Ble_S => OpCodes.Ble, Code.Ble_Un_S => OpCodes.Ble_Un, Code.Blt_S => OpCodes.Blt,
+                Code.Blt_Un_S => OpCodes.Blt_Un, Code.Leave_S => OpCodes.Leave,
+                _ => throw new InvalidDataException("Unexpected short IL branch") };
+    }
+
     private static void WriteAndReplace(AssemblyDefinition assembly, string path)
     {
         // Horizon's rename rejects an existing destination even when .NET

@@ -60,7 +60,7 @@ internal static class StartupSmoke
         SharedRasterSmoke.Run(game, root);
         FieldRasterSmoke.Run(game);
         PlaybackEffectSmoke.Run(game);
-        StreamingTalkSmoke.Run(game);
+        StreamingTalkSmoke.Run(game, output);
         MixerKernelSmoke.Run();
         RealMixerSmoke.Run();
         AssetDiagnosticsSmoke.Run(root, output, settings);

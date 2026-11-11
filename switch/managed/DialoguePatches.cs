@@ -66,14 +66,7 @@ internal static class DialoguePatches
         // The typewriter begins at the load of textTick preceding TalkStepTicks math.
         var normal = advance.Body.Instructions.Last(i => i.OpCode == OpCodes.Ldarg_2);
         waitingReturn.OpCode = OpCodes.Br; waitingReturn.Operand = normal;
-        foreach (var branch in advance.Body.Instructions.Where(i => i.OpCode.OperandType == OperandType.ShortInlineBrTarget))
-            branch.OpCode = branch.OpCode.Code switch {
-                Code.Br_S => OpCodes.Br, Code.Brtrue_S => OpCodes.Brtrue, Code.Brfalse_S => OpCodes.Brfalse,
-                Code.Beq_S => OpCodes.Beq, Code.Bne_Un_S => OpCodes.Bne_Un, Code.Bge_S => OpCodes.Bge,
-                Code.Bge_Un_S => OpCodes.Bge_Un, Code.Bgt_S => OpCodes.Bgt, Code.Bgt_Un_S => OpCodes.Bgt_Un,
-                Code.Ble_S => OpCodes.Ble, Code.Ble_Un_S => OpCodes.Ble_Un, Code.Blt_S => OpCodes.Blt,
-                Code.Blt_Un_S => OpCodes.Blt_Un, Code.Leave_S => OpCodes.Leave,
-                _ => throw new InvalidDataException("Unexpected short dialogue branch") };
+        PlatformPatches.ExpandShortBranches(advance);
         advance.Body.MaxStackSize = Math.Max(advance.Body.MaxStackSize, 12);
         foreach (var item in new[] { (talk, "DrawTalkWindow", 0), (talk, "DrawTalkLines", 1), (talk, "DrawUiScaled", 2), (talk, "DrawTalkFace", 3),
             (module.GetType("DuelDx.FieldScene"), "DrawFieldLayers", 4), (module.GetType("DuelDx.FieldScene"), "DrawFieldBackdrop", 5) })
@@ -86,6 +79,7 @@ internal static class DialoguePatches
                 var call = t.Create(OpCodes.Call, module.ImportReference(typeof(DetailProfiler).GetMethod(nameof(DetailProfiler.End))!));
                 t.InsertAfter(end, call); t.InsertAfter(call, t.Create(OpCodes.Ret));
             }
+            PlatformPatches.ExpandShortBranches(target);
             target.Body.MaxStackSize = Math.Max(2, target.Body.MaxStackSize);
         }
         log("PASS field talk drawn once; text reveals during voice preparation; local text clock catches short frame stalls, excludes long absences; nested detail timers enabled");

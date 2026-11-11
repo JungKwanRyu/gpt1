@@ -4,7 +4,7 @@ using WogSwitch;
 
 internal static class StreamingTalkSmoke
 {
-    internal static void Run(Assembly game)
+    internal static void Run(Assembly game, string output)
     {
         const BindingFlags flags = BindingFlags.Instance | BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic;
         var assets = AppDomain.CurrentDomain.GetAssemblies().Single(a => a.GetName().Name == "WarOfGenesis.Assets");
@@ -15,7 +15,15 @@ internal static class StreamingTalkSmoke
         foreach (var item in new[] { (assets.GetType("WarOfGenesis.Assets.BinkPlayback", true)!, "AudioLoop"),
             (assets.GetType("WarOfGenesis.Assets.BinkPlayback", true)!, "Start"), (game.GetType("DuelDx.CutscenePlayer", true)!, "Update"),
             (game.GetType("DuelDx.TalkBox", true)!, "AdvanceTalk") })
+        {
+            Console.WriteLine("JIT PREPARE " + item.Item1.FullName + "." + item.Item2);
+            using var image = Mono.Cecil.AssemblyDefinition.ReadAssembly(item.Item1.Assembly.Location);
+            var code = image.MainModule.GetType(item.Item1.FullName!).Methods.Single(m => m.Name == item.Item2);
+            File.AppendAllLines(Path.Combine(output, "playback-methods-il.txt"), new[] { code.FullName }.Concat(code.Body.Instructions.Select(i => i.ToString())));
             RuntimeHelpers.PrepareMethod(item.Item1.GetMethod(item.Item2, flags)!.MethodHandle);
+        }
+        foreach (string method in new[] { "DrawTalkWindow", "DrawTalkLines", "DrawUiScaled", "DrawTalkFace" })
+            RuntimeHelpers.PrepareMethod(game.GetType("DuelDx.TalkBox", true)!.GetMethod(method, flags)!.MethodHandle);
         Console.WriteLine("PASS actual patched movie/update/audio-loop and dialogue methods pass runtime JIT validation");
         int cases = 0;
         foreach (bool native in new[] { false, true })
@@ -88,6 +96,44 @@ internal static class StreamingTalkSmoke
         tt.GetMethod("AdvanceTalk", flags)!.Invoke(talk, new object[] { text, 12 });
         if ((int)tw.GetField("Revealed", flags)!.GetValue(text)! == 0 || (int)tw.GetField("VoiceLoaded", flags)!.GetValue(text)! != 0)
             throw new InvalidDataException("Voice preparation still blocks first text or voice state was altered");
+        // Voice-paced reveal uses the local clock, while a long absence is excluded.
+        object fakeMixer = RuntimeHelpers.GetUninitializedObject(mixerType);
+        mixerType.GetField("_gate", flags)!.SetValue(fakeMixer, new object());
+        var effectsField = mixerType.GetField("_effects", flags)!;
+        var effects = (System.Collections.IList)Activator.CreateInstance(effectsField.FieldType)!;
+        object voiceSound = Activator.CreateInstance(soundType, new object[] { new short[44100], 44100, 1 })!;
+        effects.Add(Activator.CreateInstance(voiceType, flags, null, new object[] { voiceSound, 1f, false, 123, 1f, 1f, false }, null)!);
+        effectsField.SetValue(fakeMixer, effects); wt.GetField("_mixer", flags)!.SetValue(window, fakeMixer);
+        var spoken = Activator.CreateInstance(tw, true)!;
+        foreach (var pair in new (string, object)[] { ("Clean", (object)"가나다라마바사아자차카타파하"), ("CharLine", new int[14]), ("MaxLines", 3),
+            ("Voice", 123), ("VoiceTag", 123), ("VoiceLoaded", 1), ("VoiceStarted", true), ("VoiceSeconds", 2f) })
+            tw.GetField(pair.Item1, flags)!.SetValue(spoken, pair.Item2);
+        var advance = tt.GetMethod("AdvanceTalk", flags)!;
+        advance.Invoke(talk, new object[] { spoken, 0 });
+        wt.GetField("_lastTime", flags)!.SetValue(window, .1); wt.GetField("_realTime", flags)!.SetValue(window, .3);
+        advance.Invoke(talk, new object[] { spoken, 3 });
+        int shown = (int)tw.GetField("Revealed", flags)!.GetValue(spoken)!;
+        if (shown < 2) throw new InvalidDataException("Actual voiced reveal still follows capped game time");
+        wt.GetField("_lastTime", flags)!.SetValue(window, .2); wt.GetField("_realTime", flags)!.SetValue(window, 100.0);
+        advance.Invoke(talk, new object[] { spoken, 6 });
+        if ((int)tw.GetField("Revealed", flags)!.GetValue(spoken)! > shown + 1) throw new InvalidDataException("Actual voiced text jumped after a long absence");
+        var ct = game.GetType("DuelDx.CutscenePlayer", true)!;
+        var cut = Activator.CreateInstance(ct, flags, null, new[] { window }, null)!;
+        string moviePath = Path.GetTempFileName();
+        try
+        {
+            var file = new FileStream(moviePath, FileMode.Open, FileAccess.Read);
+            var wgm = ct.GetNestedType("WgmClip", BindingFlags.NonPublic)!;
+            var clip = Activator.CreateInstance(wgm, flags, null, new object?[] { file, 640, 480, 15.0, new long[] { 0 }, null }, null)!;
+            ct.GetField("_clip", flags)!.SetValue(cut, clip); ct.GetField("_soundTag", flags)!.SetValue(cut, 123);
+            ((System.Collections.Generic.Queue<int>)ct.GetField("_queue", flags)!.GetValue(cut)!).Enqueue(8);
+            var handle = file.SafeFileHandle;
+            ct.GetMethod("Skip", flags)!.Invoke(cut, null);
+            if (!Equals(ct.GetProperty("Playing", flags)!.GetValue(cut), false) || effects.Count != 0 || !handle.IsClosed)
+                throw new InvalidDataException("Skip did not stop voice, release clip and clear queued playback");
+        }
+        finally { File.Delete(moviePath); }
+        Console.WriteLine("PASS actual voiced text uses short-frame recovery and excludes long absence; movie Skip stops voice, closes clip and clears queue");
         // Existing field-specific layer/wave/choice renderer must remain in charge.
         var ft = game.GetType("DuelDx.FieldScene", true)!; var field = RuntimeHelpers.GetUninitializedObject(ft);
         ft.GetFields(flags).Single(f => f.FieldType == wt).SetValue(field, window);
