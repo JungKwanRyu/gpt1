@@ -8,6 +8,8 @@ internal static class StartupAssets
     {
         bool ExplicitComplete(string path) => File.Exists(Path.Combine(path,"data/TXR/Txr.dat")) && Directory.Exists(Path.Combine(path,"characters"));
         if(ExplicitComplete(settings.GameAssets)) return settings.GameAssets;
+        // Part1-only setup must still select its base-pack path and mode.
+        if(!settings.Part2Present) return settings.GameAssets;
         string candidate=Path.Combine(settings.SaveDir,"assets");
         string manifest=Path.Combine(settings.ReleaseDir,"assets/originals.txt");
         if(!ExplicitComplete(candidate) || !File.Exists(manifest)) return settings.GameAssets;
