@@ -18,7 +18,7 @@ internal static class VideoPlaybackPatches
         Add(il.Create(OpCodes.Ldarg_0)); Add(il.Create(OpCodes.Call, getCut));
         Add(il.Create(OpCodes.Call, cut.Methods.Single(m => m.Name == "get_Showing")));
         Add(il.Create(OpCodes.Brfalse, original));
-        var begin = compose.Body.Instructions.Single(i => i.Operand is MethodReference m && m.Name == "Begin" && m.DeclaringType.Name == "HiCanvas");
+        var begin = compose.Body.Instructions.First(i => i.Operand is MethodReference m && m.Name == "Begin" && m.DeclaringType.Name == "HiCanvas");
         var hiGetter = compose.Body.Instructions.Take(compose.Body.Instructions.IndexOf(begin)).Last(i => i.Operand is MethodReference m && m.Name == "get_Hi");
         Add(il.Create(OpCodes.Ldarg_0)); Add(il.Create(OpCodes.Call, (MethodReference)hiGetter.Operand));
         Add(il.Create(OpCodes.Call, (MethodReference)begin.Operand));
