@@ -13,3 +13,5 @@ typedef struct {
 void wog_field_backdrop(uint32_t *dst, int dw, int dh, const uint32_t *bg, int bw, int bh,
                         int cx, int cy, int ox, int oy, const WogFieldPiece *pieces, int count);
 void wog_transform(uint32_t *dst,int dw,int x0,int y0,int x1,int y1,int mode,uint32_t color,int power);
+void wog_blit_scaled(uint32_t *dst,int dw,int dh,const uint32_t *src,int sw,int sh,int left,int top,int w,int h);
+void wog_field_wipe(uint32_t *dst,int dw,int dh,const uint32_t *under,const uint32_t *over,int ox,int oy,int mode,int way,int tick,int ticks);

@@ -144,3 +144,43 @@ void wog_transform(uint32_t *dst, int dw, int x0, int y0, int x1, int y1, int mo
         dst[y*dw+x]=out;
     }
 }
+
+void wog_blit_scaled(uint32_t *dst,int dw,int dh,const uint32_t *src,int sw,int sh,int left,int top,int w,int h)
+{
+ for(int y=0;y<h;y++){int dy=top+y;if(dy<0||dy>=dh)continue;int sy=y*sh/h;
+  for(int x=0;x<w;x++){int dx=left+x;if(dx>=0&&dx<dw)dst[dy*dw+dx]=src[sy*sw+x*sw/w]|0xff000000u;}}
+}
+
+void wog_field_wipe(uint32_t *dst,int dw,int dh,const uint32_t *under,const uint32_t *over,int ox,int oy,int mode,int way,int tick,int ticks)
+{
+ const int W=640,H=480;int denominator=ticks>0?ticks:1;
+ if(mode==907){
+  for(int y=0;y<H;y++)for(int x=0;x<W;x++)if(ox+x>=0&&ox+x<dw&&oy+y>=0&&oy+y<dh)dst[(oy+y)*dw+ox+x]=under[y*W+x];
+  int cols=way/1000>0?way/1000:1,rows=way%1000>0?way%1000:1,r=ticks-tick,g=r/10;
+  for(int j=0;j<rows;j++)for(int i=0;i<cols;i++){
+   int sx0=i*W/cols,sx1=(i+1)*W/cols,sy0=j*H/rows,sy1=(j+1)*H/rows;
+   int dx=(cols/2-i)*r/2,dy=(rows/2-j)*r/2,x0=sx0-dx-g,x1=sx1-dx+g,y0=sy0-dy-g,y1=sy1-dy+g;
+   if(x1<=0||y1<=0||x0>=W||y0>=H||x1<=x0||y1<=y0||sx1<=sx0||sy1<=sy0)continue;
+   for(int y=y0>0?y0:0;y<(y1<H?y1:H);y++){int sy=sy0+(y-y0)*(sy1-sy0)/(y1-y0);
+    for(int x=x0>0?x0:0;x<(x1<W?x1:W);x++)if(ox+x>=0&&ox+x<dw&&oy+y>=0&&oy+y<dh)
+      dst[(oy+y)*dw+ox+x]=over[sy*W+sx0+(x-x0)*(sx1-sx0)/(x1-x0)];}
+  }return;
+ }
+ int pos=0;if(mode==904){int span=(way==2||way==3)?W:H;pos=span*tick/denominator;if(pos<0)pos=0;if(pos>span)pos=span;if(!pos)return;}
+ unsigned char lit[480]={0};
+ if(mode==908){
+  for(int t=0;t<=(tick<30?tick:30);t++)for(int c=0;c<=480;c+=120){int a=c+2*t,b=c-2*t;if(a>=0&&a<H)lit[a]=1;if(b>=0&&b<H)lit[b]=1;}
+  for(int u=0;u<=(tick<60?tick:60)-30;u++)for(int c=0;c<=480;c+=120){int a=c+1+2*u,b=c-1-2*u;if(a>=0&&a<H)lit[a]=1;if(b>=0&&b<H)lit[b]=1;}
+ }
+ for(int y=0;y<H;y++)for(int x=0;x<W;x++){
+  int dx=ox+x,dy=oy+y;if(dx<0||dx>=dw||dy<0||dy>=dh)continue;
+  uint32_t color;
+  if(mode==909){int k=tick*8/denominator+1;if(k>8)k=8;unsigned a=k>=8?256u:(unsigned)(4*k*256/31);uint32_t b=under[y*W+x],o=over[y*W+x];color=0xff000000u;
+   for(int s=0;s<=16;s+=8)color|=((((b>>s)&255)*(256-a)+((o>>s)&255)*a)>>8)<<s;
+  }else if(mode==901){int edge=(W+way)*tick/denominator;color=(x<edge?over:under)[y*W+x]|0xff000000u;
+  }else if(mode==903){int bands=way>0?way:1,width=W/bands,band=x/width;if(band>bands-1)band=bands-1;int shown=tick-band;if(shown<0)shown=0;if(shown>width)shown=width;color=(x-band*width<shown?over:under)[y*W+x]|0xff000000u;
+  }else if(mode==908){color=(lit[y]?over:under)[y*W+x];
+  }else{int sx=x,sy=y;if(way==0){if(sy<H-pos)sy=H-pos;}else if(way==1){if(sy>pos-1)sy=pos-1;}else if(way==2){if(sx<W-pos)sx=W-pos;}else if(sx>pos-1)sx=pos-1;color=over[sy*W+sx]|0xff000000u;}
+  dst[dy*dw+dx]=color;
+ }
+}

@@ -91,8 +91,10 @@ public static class SwitchRaster
 
     public static bool TryVideoCopy(uint[] dst, int dw, int dh, uint[] src, int sw, int sh, int cx, int cy, int vw, int vh)
     {
-        if (!UseNative || sw != vw || sh != vh || !Valid(dst, dw, dh, src, sw, sh)) return false;
-        BlitOpaque(dst, dw, dh, src, sw, sh, cx, cy);
+        if (!UseNative || vw<=0 || vh<=0 || !Valid(dst, dw, dh, src, sw, sh)) return false;
+        int width=Math.Min(vw,vh*sw/sh),height=width*sh/sw;
+        if(width<=0 || height<=0)return false;
+        unsafe { fixed(uint* d=dst) fixed(uint* s=src) wog_blit_scaled(d,dw,dh,s,sw,sh,cx+(vw-width)/2,cy+(vh-height)/2,width,height); }
         return true;
     }
 
@@ -111,6 +113,19 @@ public static class SwitchRaster
     }
     [DllImport("WogSwitch", CallingConvention=CallingConvention.Cdecl)]
     private static extern unsafe void wog_transform(uint* dst,int dw,int x0,int y0,int x1,int y1,int mode,uint color,int power);
+
+    public static unsafe bool TryWipe(uint[] dst,int dw,int dh,uint[]? under,uint[] over,int ox,int oy,int mode,int way,int tick,int ticks)
+    {
+        if(!UseNative || !Valid(dst,dw,dh,over,640,480) || tick<0 || ticks<0 || ticks>100000 || way<0 || way>100000 || (mode==903 && way>640)) return false;
+        if(ox<0 || oy<0 || (long)ox+640>dw || (long)oy+480>dh)return false;
+        under ??= over;if(under.Length<640*480)return false;
+        fixed(uint* d=dst)fixed(uint* a=under)fixed(uint* b=over)wog_field_wipe(d,dw,dh,a,b,ox,oy,mode,way,tick,ticks);
+        return true;
+    }
+    [DllImport("WogSwitch", CallingConvention=CallingConvention.Cdecl)]
+    private static extern unsafe void wog_field_wipe(uint* dst,int dw,int dh,uint* under,uint* over,int ox,int oy,int mode,int way,int tick,int ticks);
+    [DllImport("WogSwitch", CallingConvention=CallingConvention.Cdecl)]
+    private static extern unsafe void wog_blit_scaled(uint* dst,int dw,int dh,uint* src,int sw,int sh,int x,int y,int w,int h);
 
     private static bool Valid(uint[] dst, int w, int h, uint[] src, int sw, int sh) =>
         w > 0 && h > 0 && sw > 0 && sh > 0 && (long)w * h <= dst.Length && (long)sw * sh <= src.Length;

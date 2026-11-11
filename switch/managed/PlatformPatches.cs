@@ -30,6 +30,7 @@ internal static class PlatformPatches
             SharedRasterPatches.Apply(module, log);
             VideoPlaybackPatches.Apply(module, log);
             EffectRasterPatches.Apply(module, log);
+            WipeRasterPatches.Apply(module, log);
             WriteAndReplace(assembly, path);
         }
         path = Path.Combine(directory, "WarOfGenesis.Assets.dll");

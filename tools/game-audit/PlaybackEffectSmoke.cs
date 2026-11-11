@@ -72,6 +72,21 @@ internal static class PlaybackEffectSmoke
                 for(int y=0;y<height;y++)for(int x=0;x<width;x++)px[(top+y)*W+left+x]=frame[y*size.Item2/height*size.Item1+x*size.Item1/width]|0xff000000;
             });
         }
+        var over=Enumerable.Range(0,640*480).Select(i=>unchecked((uint)(i*1234567))).ToArray();
+        var under=Enumerable.Range(0,640*480).Select(i=>unchecked((uint)(i*76543))).ToArray();
+        var wipeType=ft.GetNestedType("FieldWipe",BindingFlags.Public|BindingFlags.NonPublic)!;
+        foreach(var item in new[]{("DrawSlideWipe",901),("DrawCombWipe",903),("DrawStreakWipe",904),("DrawGatherWipe",907),("DrawLineWipe",908),("DrawDissolveWipe",909)})
+        foreach(int tick in new[]{0,1,15,30,59})foreach(bool hasBase in new[]{false,true}) {
+            int[] ways=item.Item2==907?new[]{1001,3004}:item.Item2==904?new[]{0,1,2,3}:item.Item2==903?new[]{4,7}:new[]{1};
+            foreach(int way in ways) {
+                object wipe=Activator.CreateInstance(wipeType,new object?[]{item.Item2,way,60,0.0,hasBase?under:null,over,8})!;
+                var args=new object[]{0,0,wipe,tick};
+                initial.CopyTo(fb,0);ft.GetMethod("SwitchOriginal"+item.Item1,f)!.Invoke(field,args);var expected=(uint[])fb.Clone();
+                initial.CopyTo(fb,0);ft.GetMethod(item.Item1,f)!.Invoke(field,args);
+                if(!fb.SequenceEqual(expected))throw new InvalidDataException("Wipe mismatch "+item+" tick="+tick+" way="+way);
+                cases++;
+            }
+        }
         SwitchRaster.UseNative=false;
         Console.WriteLine("PASS actual patched gray/field fade/scene fade/movie paint methods execute with exact reference pixels: "+cases+" cases; native C + scaled fallback");
     }
