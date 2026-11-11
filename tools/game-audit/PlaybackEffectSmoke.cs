@@ -87,6 +87,21 @@ internal static class PlaybackEffectSmoke
                 cases++;
             }
         }
+        var assets=AppDomain.CurrentDomain.GetAssemblies().Single(a=>a.GetName().Name=="WarOfGenesis.Assets");
+        var playbackType=assets.GetType("WarOfGenesis.Assets.BinkPlayback",true)!;
+        var playback=RuntimeHelpers.GetUninitializedObject(playbackType);
+        var queueField=playbackType.GetField("_ready",f)!;
+        queueField.SetValue(playback,Activator.CreateInstance(queueField.FieldType,new object[]{6}));
+        playbackType.GetField("_audioThread",f)!.SetValue(playback,new Thread(()=>{}));
+        var binkType=ct.GetNestedType("BinkClip",BindingFlags.NonPublic)!;
+        var bink=Activator.CreateInstance(binkType,f,null,new[]{playback},null)!;
+        foreach(var state in new[]{(true,false,false),(true,true,true),(false,true,false)}) {
+            playbackType.GetField("_videoDone",f)!.SetValue(playback,state.Item1);
+            playbackType.GetField("_audioDone",f)!.SetValue(playback,state.Item2);
+            if(!Equals(binkType.GetProperty("Ready",f)!.GetValue(bink),state.Item3))throw new InvalidDataException("Bink audio readiness gate failed");
+            cases++;
+        }
+        ((IDisposable)queueField.GetValue(playback)!).Dispose();
         SwitchRaster.UseNative=false;
         Console.WriteLine("PASS actual patched gray/field fade/scene fade/movie paint methods execute with exact reference pixels: "+cases+" cases; native C + scaled fallback");
     }
