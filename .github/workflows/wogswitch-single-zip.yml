@@ -22,9 +22,9 @@ jobs:
           
           REPO = "JungKwanRyu/gpt1"
           RELEASE = 425960140
-          NAME = "WogSwitchProbe-0.5.12.zip"
-          EXPECTED = "5f150644ea5ac551398904be69dca04e25a33f14c9cccdcabacf9a32b47791f6"
-          PARTS = [{"id":734086276,"name":"WogSwitchProbe-0.5.12.clean-transfer.001","size":5242880,"digest":"sha256:694f20b30913ad95f0e543433d2ce8a0cd77e62cb677303cf7a2d6f283015177"},{"id":734086340,"name":"WogSwitchProbe-0.5.12.clean-transfer.002","size":5242880,"digest":"sha256:7ec1e4222f491605e1a4534391e64557169bd2838ffe093601528c7bb1f8d73f"},{"id":734086369,"name":"WogSwitchProbe-0.5.12.clean-transfer.003","size":5242880,"digest":"sha256:1a007c9f249d51fdf1d200920f637d8449c43ae393b36ae57f06065f410e7a47"},{"id":734086409,"name":"WogSwitchProbe-0.5.12.clean-transfer.004","size":5242880,"digest":"sha256:72137067fa69ff722db983cb9aeaddea101e4e3b7a3a1e8da7d7c56c83eba650"},{"id":734086452,"name":"WogSwitchProbe-0.5.12.clean-transfer.005","size":5242880,"digest":"sha256:2a51aa85c6011d2676d01688521edbe064af74b31a35e1763a8479e530e0208d"},{"id":734086484,"name":"WogSwitchProbe-0.5.12.clean-transfer.006","size":5242880,"digest":"sha256:f1f987a170ee06c951341835cc489983cea7134d33f0d3b07039a06a66221fdd"},{"id":734086521,"name":"WogSwitchProbe-0.5.12.clean-transfer.007","size":5242880,"digest":"sha256:e1d0dbe41c569aae94f9e00532e61d188a19d208e09e8d4bf284c13355f18139"},{"id":734086587,"name":"WogSwitchProbe-0.5.12.clean-transfer.008","size":2883047,"digest":"sha256:2cb09af37f436935f17f433d4a313f4dd4fe63fe6c984dc26d95ba38b07c101f"}]
+          NAME = "WogSwitchProbe-0.5.13.zip"
+          EXPECTED = "5a98c331520efb4d5193670cd4404f2c1c18ec16511caa7563af53b9aa213909"
+          PARTS = [{"id":734567101,"name":"WogSwitchProbe-0.5.13.clean-transfer.001","size":5242880,"digest":"sha256:d4e494460a7fe980fe314b5c5c282bdf33be383388d46388c642b5003fb968b9"},{"id":734567143,"name":"WogSwitchProbe-0.5.13.clean-transfer.002","size":5242880,"digest":"sha256:4e9e176904f0a3a930ff889402f4d481fda435ff8202f77bfea05805f5894aa0"},{"id":734567208,"name":"WogSwitchProbe-0.5.13.clean-transfer.003","size":5242880,"digest":"sha256:7f01b260cbaa391a75ae37785bbfb8188e262ca3c4a805630ad2c177f822984f"},{"id":734567263,"name":"WogSwitchProbe-0.5.13.clean-transfer.004","size":5242880,"digest":"sha256:cc7f0012c6bdf4621b7bda54316b1169d5dfaa83fe652c767d6aebdff82cd9c8"},{"id":734567352,"name":"WogSwitchProbe-0.5.13.clean-transfer.005","size":5242880,"digest":"sha256:878a71a4d477cfd1988d39274ecd4fc6520273eba38a545ec0f5b73c6a68aaf8"},{"id":734567423,"name":"WogSwitchProbe-0.5.13.clean-transfer.006","size":5242880,"digest":"sha256:1403d6bfecedf21cdc5381a6a3fab085a4c75b95b5daa23c92477724824086a8"},{"id":734567521,"name":"WogSwitchProbe-0.5.13.clean-transfer.007","size":5242880,"digest":"sha256:542067d9b89451cdc022014c3676958cf00ac956ea42d6ee11c2ffde7d775948"},{"id":734567590,"name":"WogSwitchProbe-0.5.13.clean-transfer.008","size":2890737,"digest":"sha256:40abf1dfa3c0fcc19d3320d3d9f8af0f80fd7bf921b71bb7950f8cb2c02e491a"}]
           HEADERS = {"Authorization": "Bearer " + os.environ["GH_TOKEN"], "User-Agent": "WogSwitch-single-zip", "X-GitHub-Api-Version": "2022-11-28"}
           
           def api(path):
@@ -60,7 +60,7 @@ jobs:
                   stream.write(data)
                   print("Verified part", part["name"])
           data = output.read_bytes()
-          assert len(data) == 39583207
+          assert len(data) == 39590897
           assert hashlib.sha256(data).hexdigest() == EXPECTED
           with zipfile.ZipFile(output) as archive:
               assert archive.testzip() is None
@@ -87,8 +87,8 @@ jobs:
         run: |
           import hashlib, zipfile
           from pathlib import Path
-          source = Path("WogSwitchProbe-0.5.12.zip")
-          assert hashlib.sha256(source.read_bytes()).hexdigest() == "5f150644ea5ac551398904be69dca04e25a33f14c9cccdcabacf9a32b47791f6"
+          source = Path("WogSwitchProbe-0.5.13.zip")
+          assert hashlib.sha256(source.read_bytes()).hexdigest() == "5a98c331520efb4d5193670cd4404f2c1c18ec16511caa7563af53b9aa213909"
           target = Path("download-package")
           with zipfile.ZipFile(source) as archive:
               assert archive.testzip() is None
@@ -99,7 +99,7 @@ jobs:
           print("CHAT ATTACHMENT CONTENTS VERIFIED")
       - uses: actions/upload-artifact@v4
         with:
-          name: WogSwitchProbe-0.5.12-download
+          name: WogSwitchProbe-0.5.13-download
           path: download-package/
           include-hidden-files: true
           compression-level: 9
