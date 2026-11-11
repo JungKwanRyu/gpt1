@@ -12,6 +12,11 @@ internal static class StreamingTalkSmoke
         var mixerType = assets.GetType("WarOfGenesis.Assets.AudioMixer", true)!;
         var voiceType = mixerType.GetNestedType("Voice", BindingFlags.NonPublic)!;
         var original = mixerType.GetMethod("SwitchOriginalMix", flags)!;
+        foreach (var item in new[] { (assets.GetType("WarOfGenesis.Assets.BinkPlayback", true)!, "AudioLoop"),
+            (assets.GetType("WarOfGenesis.Assets.BinkPlayback", true)!, "Start"), (game.GetType("DuelDx.CutscenePlayer", true)!, "Update"),
+            (game.GetType("DuelDx.TalkBox", true)!, "AdvanceTalk") })
+            RuntimeHelpers.PrepareMethod(item.Item1.GetMethod(item.Item2, flags)!.MethodHandle);
+        Console.WriteLine("PASS actual patched movie/update/audio-loop and dialogue methods pass runtime JIT validation");
         int cases = 0;
         foreach (bool native in new[] { false, true })
         foreach (int channels in new[] { 1, 2 })

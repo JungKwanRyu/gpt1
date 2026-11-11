@@ -11,7 +11,7 @@ public static class StreamedAudio
     private sealed class State
     {
         internal readonly long Opened = Stopwatch.GetTimestamp();
-        internal int Samples, Channels, Rate, Underruns;
+        internal int Samples, Channels, Rate, Underruns, ReportedUnderruns;
         internal bool Complete, First, Ready, Mixed, Ended, Rebuffer, Tail, Clock;
         internal double Position, LastMedia, TailReal, TailMedia;
     }
@@ -56,6 +56,7 @@ public static class StreamedAudio
         if (muted || samples == null || !streams.TryGetValue(samples, out var state)) return elapsed;
         lock (state)
         {
+            if (state.ReportedUnderruns != state.Underruns) { state.ReportedUnderruns = state.Underruns; Log(state, "audio-refill count=" + state.Underruns); }
             if (!state.Clock) { state.Clock = true; Log(state, "playback-clock-start"); }
             if (!state.Mixed || state.Rate <= 0) return elapsed;
             double media = state.Position / state.Rate;

@@ -26,7 +26,7 @@ internal static class DialoguePatches
         void Times()
         {
             foreach (string field in new[] { "_lastTime", "_realTime", "_gameSpeed" })
-            { Add(writer.Create(OpCodes.Ldarg_0)); Add(writer.Create(OpCodes.Ldfld, host)); Add(writer.Create(OpCodes.Ldfld, window.Fields.Single(f => f.Name == field))); }
+            { Add(writer.Create(OpCodes.Ldarg_0)); Add(writer.Create(OpCodes.Ldfld, host)); Add(writer.Create(OpCodes.Ldfld, window.Fields.Single(f => f.Name == field))); if (field == "_gameSpeed") Add(writer.Create(OpCodes.Conv_I4)); }
         }
         Add(writer.Create(OpCodes.Ldarg_1)); Add(writer.Create(OpCodes.Ldarg_2)); Times();
         Add(writer.Create(OpCodes.Call, module.ImportReference(typeof(DialogueClock).GetMethod(nameof(DialogueClock.Tick))!)));
@@ -42,12 +42,20 @@ internal static class DialoguePatches
             if (advance.Body.Instructions.IndexOf(read) < advance.Body.Instructions.IndexOf(first)) continue;
             var start = read.Previous.Previous;
             if (start.OpCode != OpCodes.Ldarg_0 || read.Previous.Operand != host) throw new InvalidDataException("Dialogue clock access changed");
-            writer.InsertBefore(start, writer.Create(OpCodes.Ldarg_1));
+            var key = writer.Create(OpCodes.Ldarg_1);
+            writer.InsertBefore(start, key);
+            foreach (var jump in advance.Body.Instructions)
+            {
+                if (ReferenceEquals(jump.Operand, start)) jump.Operand = key;
+                else if (jump.Operand is Instruction[] targets)
+                    for (int n = 0; n < targets.Length; n++) if (ReferenceEquals(targets[n], start)) targets[n] = key;
+            }
             var after = read.Next;
             foreach (string field in new[] { "_realTime", "_gameSpeed" })
             {
                 writer.InsertBefore(after, writer.Create(OpCodes.Ldarg_0)); writer.InsertBefore(after, writer.Create(OpCodes.Ldfld, host));
                 writer.InsertBefore(after, writer.Create(OpCodes.Ldfld, window.Fields.Single(f => f.Name == field)));
+                if (field == "_gameSpeed") writer.InsertBefore(after, writer.Create(OpCodes.Conv_I4));
             }
             writer.InsertBefore(after, writer.Create(OpCodes.Call, module.ImportReference(typeof(DialogueClock).GetMethod(nameof(DialogueClock.Now))!)));
         }
