@@ -8,6 +8,8 @@ internal static class StartupAssetsSmoke
         string shipped=Path.Combine(settings.ReleaseDir,"assets");
         void Check(bool cache,string label) { if((StartupAssets.Select(settings,Console.WriteLine)==saved)!=cache)throw new InvalidDataException(label);Console.WriteLine("PASS "+label); }
         Check(false,"missing extracted cache uses ordinary preparation");
+        Directory.CreateDirectory(Path.Combine(settings.OriginalPart2,"TXR"));Directory.CreateDirectory(Path.Combine(settings.OriginalPart2,"Chr"));Directory.CreateDirectory(Path.Combine(settings.OriginalPart2,"Obs"));
+        string originalTxr=Path.Combine(settings.OriginalPart2,"TXR/Txr.dat");File.WriteAllText(originalTxr,"SYNTHETIC ORIGINAL");
         Directory.CreateDirectory(Path.Combine(saved,"data/TXR"));Directory.CreateDirectory(Path.Combine(saved,"characters"));Directory.CreateDirectory(shipped);
         File.WriteAllText(Path.Combine(saved,"data/TXR/Txr.dat"),"SYNTHETIC");
         string manifest=Path.Combine(shipped,"originals.txt");File.WriteAllText(manifest,"# synthetic manifest\ndata/TXR/Txr.dat\ncharacters/test.chr\n");
@@ -16,6 +18,7 @@ internal static class StartupAssetsSmoke
         Check(false,"partial cache falls back even when Txr and characters exist");
         File.WriteAllText(Path.Combine(saved,"characters/test.chr"),"SYNTHETIC");
         Check(true,"complete extracted manifest reuses assets across SD path changes");
+        File.Delete(originalTxr);Check(false,"part1-only or missing-part2 setup retains original mode selection");File.WriteAllText(originalTxr,"SYNTHETIC ORIGINAL");
         File.Delete(Path.Combine(saved,"characters/test.chr"));Check(false,"deleted extracted asset triggers ordinary repair");
         File.WriteAllText(Path.Combine(saved,"characters/test.chr"),"SYNTHETIC");
         File.AppendAllText(manifest,"data/new.dat\n");Check(false,"changed shipped manifest invalidates extracted reuse");
