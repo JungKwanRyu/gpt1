@@ -30,7 +30,7 @@ internal static class RenderPanel
             canvas.DrawText(diagnostics ? Sample : "게임 실행 준비", 64, 218, body, paint);
             paint.Color = new SKColor(170, 196, 220);
             using var small = new SKFont(face, 25) { Edging = SKFontEdging.Antialias };
-            canvas.DrawText(diagnostics ? "SkiaSharp 3.119 / native Switch raster" : "0.5.14", 64, 264, small, paint);
+            canvas.DrawText(diagnostics ? "SkiaSharp 3.119 / native Switch raster" : "0.5.15", 64, 264, small, paint);
             canvas.DrawText(pressed ? "A 입력 확인 — 색상 변경 성공" : "A 버튼: 색상 변경    PLUS: 종료", 64, 638, body, paint);
             canvas.DrawText(diagnostics ? "이미지: PNG 저장 → 디코딩 → 확대 출력" : "X: 게임 시작    PLUS: 종료", 64, 690, small, paint);
 

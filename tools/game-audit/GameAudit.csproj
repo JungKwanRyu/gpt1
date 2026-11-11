@@ -7,6 +7,12 @@
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="../../switch/managed/StreamedAudio.cs" Link="StreamedAudio.cs" />
+    <Compile Include="../../switch/managed/StreamingPlaybackPatches.cs" Link="StreamingPlaybackPatches.cs" />
+    <Compile Include="../../switch/managed/DialogueClock.cs" Link="DialogueClock.cs" />
+    <Compile Include="../../switch/managed/DetailProfiler.cs" Link="DetailProfiler.cs" />
+    <Compile Include="../../switch/managed/DialoguePatches.cs" Link="DialoguePatches.cs" />
+
     <Compile Include="../../switch/managed/ViewportClearPatches.cs" Link="ViewportClearPatches.cs" />
     <Compile Include="../../switch/managed/AudioMixerPatches.cs" Link="AudioMixerPatches.cs" />
     <Compile Include="../../switch/managed/SwitchMixer.cs" Link="SwitchMixer.cs" />

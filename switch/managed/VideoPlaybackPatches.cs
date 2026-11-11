@@ -42,17 +42,5 @@ internal static class VideoPlaybackPatches
         P(writer.Create(OpCodes.Brfalse, first)); P(writer.Create(OpCodes.Ret));
         paint.Body.MaxStackSize = Math.Max(paint.Body.MaxStackSize, 12);
         log("PASS movie frame native scale/copy with original fallback");
-        var bink=cut.NestedTypes.Single(t=>t.Name=="BinkClip");
-        var playback=bink.Fields.Single(f=>f.FieldType.Name=="BinkPlayback");
-        var ready=bink.Methods.Single(m=>m.Name=="get_Ready");
-        ready.Body=new MethodBody(ready);
-        var ri=ready.Body.GetILProcessor();var notReady=ri.Create(OpCodes.Ldc_I4_0);
-        foreach(string property in new[]{"get_FirstFrameReady","get_AudioFinished"}) {
-            ri.Emit(OpCodes.Ldarg_0);ri.Emit(OpCodes.Ldfld,playback);
-            ri.Emit(OpCodes.Callvirt,new MethodReference(property,module.TypeSystem.Boolean,playback.FieldType){HasThis=true});
-            if(property=="get_FirstFrameReady")ri.Emit(OpCodes.Brfalse,notReady);
-        }
-        ri.Emit(OpCodes.Ret);ri.Append(notReady);ri.Emit(OpCodes.Ret);
-        log("PASS Bink playback waits for initial video and audio decoder completion before starting its clock/sound");
     }
 }

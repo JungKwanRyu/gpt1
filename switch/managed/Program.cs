@@ -25,7 +25,7 @@ internal static class Program
             // when the embedded runtime formats its own error messages.
             AppContext.SetSwitch("System.Resources.UseSystemResourceKeys", true);
             if (prepareSd) return DesktopPreparation.Run(args[1], Log);
-            Log("Managed checkpoint 0.5.14: native voice mixer and shared raster kernels");
+            Log("Managed checkpoint 0.5.15: incremental movie audio and field dialogue timing");
             string root = desktop ? Path.GetTempPath() : "/switch/WogSwitchProbe";
             var layout = new GameLayout(Path.Combine(root, "release"), Path.Combine(root, "patched"),
                 Path.Combine(root, "save"), null, Path.Combine(root, "managed/WogShim.dll"));

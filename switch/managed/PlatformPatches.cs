@@ -29,7 +29,9 @@ internal static class PlatformPatches
             SceneRasterPatches.Apply(module, log);
             FieldRasterPatches.Apply(module, log);
             SharedRasterPatches.Apply(module, log);
+            DialoguePatches.Apply(module, log);
             VideoPlaybackPatches.Apply(module, log);
+            StreamingPlaybackPatches.ApplyGame(module, log);
             EffectRasterPatches.Apply(module, log);
             WipeRasterPatches.Apply(module, log);
             WriteAndReplace(assembly, path);
@@ -47,6 +49,7 @@ internal static class PlatformPatches
             RewriteHostCalls(assembly.MainModule);
             AddAssetDiagnostics(assembly.MainModule);
             AudioMixerPatches.Apply(assembly.MainModule, log);
+            StreamingPlaybackPatches.ApplyAssets(assembly.MainModule, log);
             WriteAndReplace(assembly, path);
         }
         log("PASS Switch platform patches: report UI notice, power/DPI calls, configured scans, app paths, controlled exit/crash");

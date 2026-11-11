@@ -13,10 +13,11 @@ public static class FrameProfiler
 
     internal static void Reset(string root, Action<string> log)
     {
+        DetailProfiler.Reset();
         Array.Clear(starts); Array.Clear(ticks); Array.Clear(counts);
         warmup = true; frames = lastFrame = maxInterval = 0; since = Stopwatch.GetTimestamp();
         logger = log; report = Path.Combine(root, "performance.log");
-        File.WriteAllText(report, "WogSwitch 0.5.14 frame wall times; draw includes swap; not GPU-only time; gaps over 60s recorded separately\n");
+        File.WriteAllText(report, "WogSwitch 0.5.15 frame wall times; draw includes swap; not GPU-only time; gaps over 60s recorded separately\n");
     }
 
     public static void Begin(int phase) => BeginAt(phase, Stopwatch.GetTimestamp());
@@ -71,6 +72,7 @@ public static class FrameProfiler
         line += " max-frame=" + (maxInterval * 1000.0 / Stopwatch.Frequency).ToString("F1", System.Globalization.CultureInfo.InvariantCulture) + "ms";
         try { File.AppendAllText(report, line + "\n"); logger?.Invoke(line); }
         catch { /* Timing must not terminate the game. */ }
+        DetailProfiler.Flush(logger);
         Array.Clear(ticks); Array.Clear(counts); frames = maxInterval = 0; since = Stopwatch.GetTimestamp();
     }
 }

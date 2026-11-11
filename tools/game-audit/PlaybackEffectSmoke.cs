@@ -95,7 +95,7 @@ internal static class PlaybackEffectSmoke
         playbackType.GetField("_audioThread",f)!.SetValue(playback,new Thread(()=>{}));
         var binkType=ct.GetNestedType("BinkClip",BindingFlags.NonPublic)!;
         var bink=Activator.CreateInstance(binkType,f,null,new[]{playback},null)!;
-        foreach(var state in new[]{(true,false,false),(true,true,true),(false,true,false)}) {
+        foreach(var state in new[]{(true,false,true),(true,true,true),(false,true,false)}) {
             playbackType.GetField("_videoDone",f)!.SetValue(playback,state.Item1);
             playbackType.GetField("_audioDone",f)!.SetValue(playback,state.Item2);
             if(!Equals(binkType.GetProperty("Ready",f)!.GetValue(bink),state.Item3))throw new InvalidDataException("Bink audio readiness gate failed");
