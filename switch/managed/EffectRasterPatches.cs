@@ -11,29 +11,44 @@ internal static class EffectRasterPatches
             Code.Ldloc_2 or Code.Stloc_2 => m.Body.Variables[2], Code.Ldloc_3 or Code.Stloc_3 => m.Body.Variables[3],
             Code.Ldloc or Code.Ldloc_S or Code.Stloc or Code.Stloc_S => (VariableDefinition)i.Operand,
             _ => throw new InvalidDataException("Effect local changed: "+i) };
+        Instruction[] Expression(MethodDefinition method, Instruction last) {
+            if(last.OpCode==OpCodes.Ldfld) return new[]{last.Previous,last};
+            Local(method,last);return new[]{last};
+        }
         foreach(string name in new[]{"DrawSceneFade","ApplyFieldGray","DrawFieldFade"}) {
             bool scene=name=="DrawSceneFade", gray=name=="ApplyFieldGray";
             var owner=scene?window:field; var method=owner.Methods.Single(m=>m.Name==name);
-            var code=method.Body.Instructions; Instruction start; VariableDefinition? power=null,color=null;
+            var code=method.Body.Instructions; Instruction start; Instruction[]? power=null,color=null;
             if(scene) {
                 var dim=code.Single(i=>i.Operand is MethodReference r && r.Name=="Dim" && r.DeclaringType.Name=="HiCanvas");
-                power=Local(method,dim.Previous.Previous); start=dim.Next;
+                power=Expression(method,dim.Previous.Previous); start=dim.Next;
             } else if(gray) {
-                start=code.First(i=>i.OpCode.FlowControl==FlowControl.Cond_Branch).Next;
+                var guard=code.First(i=>i.OpCode.FlowControl==FlowControl.Cond_Branch);
+                start=guard.Next.OpCode==OpCodes.Ret?(Instruction)guard.Operand:guard.Next;
             } else {
                 var get=code.Single(i=>i.Operand is MethodReference r && r.Name=="get_Color");
-                color=Local(method,get.Next);start=get.Next.Next;
+                if(get.Next.OpCode==OpCodes.Stfld) {
+                    var f=(FieldReference)get.Next.Operand;
+                    var v=method.Body.Variables.Single(v=>v.VariableType.FullName==f.DeclaringType.FullName);
+                    color=new[]{Instruction.Create(v.VariableType.IsValueType?OpCodes.Ldloca:OpCodes.Ldloc,v),Instruction.Create(OpCodes.Ldfld,f)};
+                } else color=new[]{Instruction.Create(OpCodes.Ldloc,Local(method,get.Next))};
+                start=get.Next.Next;
                 var branch=code.Take(code.IndexOf(get)).Last(i=>i.OpCode.FlowControl==FlowControl.Cond_Branch);
                 var candidate=branch.Previous;
                 if(candidate.OpCode.Code is Code.Ldc_I4_0)candidate=candidate.Previous;
-                power=Local(method,candidate);
+                power=Expression(method,candidate);
             }
             var end=code.Last(); if(end.OpCode!=OpCodes.Ret)throw new InvalidDataException("Effect return changed");
             var removed=code.Skip(code.IndexOf(start)).Take(code.IndexOf(end)-code.IndexOf(start)).ToHashSet();
             foreach(var i in code.Where(i=>!removed.Contains(i)))
-                if(i.Operand is Instruction jump && removed.Contains(jump))throw new InvalidDataException("External branch into effect loop");
+                if(i.Operand is Instruction jump && removed.Contains(jump) && jump!=start)throw new InvalidDataException("External branch into effect loop");
             var il=method.Body.GetILProcessor();
-            void E(Instruction i)=>il.InsertBefore(start,i);
+            Instruction? firstNew=null;
+            void E(Instruction i){firstNew??=i;il.InsertBefore(start,i);}
+            void Value(Instruction[]? expression){
+                if(expression==null){E(il.Create(OpCodes.Ldc_I4_0));return;}
+                foreach(var old in expression){var copy=il.Create(OpCodes.Nop);copy.OpCode=old.OpCode;copy.Operand=old.Operand;E(copy);}
+            }
             void Host(){E(il.Create(OpCodes.Ldarg_0));if(!scene)E(il.Create(OpCodes.Ldfld,field.Fields.Single(f=>f.FieldType==window)));}
             void F(string n){Host();E(il.Create(OpCodes.Ldfld,window.Fields.Single(f=>f.Name==n)));}
             void G(string n){Host();E(il.Create(OpCodes.Call,window.Methods.Single(m=>m.Name==n)));}
@@ -41,9 +56,10 @@ internal static class EffectRasterPatches
             if(scene||gray){F("_camX");F("_camY");G("get_ViewWidth");G("get_ViewHeight");}
             else{E(il.Create(OpCodes.Ldarg_1));E(il.Create(OpCodes.Ldarg_2));E(il.Create(OpCodes.Ldc_I4,640));E(il.Create(OpCodes.Ldc_I4,480));}
             E(il.Create(OpCodes.Ldc_I4,gray?0:scene?1:2));
-            E(color==null?il.Create(OpCodes.Ldc_I4_0):il.Create(OpCodes.Ldloc,color));
-            E(power==null?il.Create(OpCodes.Ldc_I4_0):il.Create(OpCodes.Ldloc,power));
+            Value(color);
+            Value(power);
             E(il.Create(OpCodes.Call,module.ImportReference(typeof(SwitchRaster).GetMethod(nameof(SwitchRaster.Transform))!)));
+            foreach(var i in code.Where(i=>!removed.Contains(i))) if(i.Operand==start)i.Operand=firstNew;
             foreach(var i in removed)il.Remove(i);
             method.Body.MaxStackSize=Math.Max(method.Body.MaxStackSize,12);
             log("PASS native full-viewport effect: "+name);
