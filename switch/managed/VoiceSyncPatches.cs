@@ -23,6 +23,10 @@ internal static class VoiceSyncPatches
         li.InsertBefore(first,li.Create(OpCodes.Ldloca,starts));li.InsertBefore(first,li.Create(OpCodes.Call,subscribe));li.InsertBefore(first,li.Create(OpCodes.Starg,load.Parameters[1]));
         li.InsertBefore(first,li.Create(OpCodes.Ldloc,starts));li.InsertBefore(first,li.Create(OpCodes.Brtrue,first));li.InsertBefore(first,li.Create(OpCodes.Ret));
         load.Body.MaxStackSize=Math.Max(5,load.Body.MaxStackSize);PlatformPatches.ExpandShortBranches(load);
+        var startVoice=talk.Methods.Single(m=>m.Name=="StartTalkWindowVoice");var vi=startVoice.Body.GetILProcessor();
+        var voiceLoad=startVoice.Body.Instructions.Single(i=>i.Operand is MethodReference m&&m.Name=="LoadClip");
+        var defer=new GenericInstanceMethod(module.ImportReference(typeof(VoiceStartQueue).GetMethod(nameof(VoiceStartQueue.Wrap))!));defer.GenericArguments.Add(sound);
+        vi.InsertBefore(voiceLoad,vi.Create(OpCodes.Call,defer));PlatformPatches.ExpandShortBranches(startVoice);
         var ignore=new MethodDefinition("SwitchIgnorePrefetchedVoice",MethodAttributes.Assembly|MethodAttributes.Static,module.TypeSystem.Void);
         ignore.Parameters.Add(new ParameterDefinition(sound));window.Methods.Add(ignore);ignore.Body.GetILProcessor().Emit(OpCodes.Ret);
         var open=talk.Methods.Single(m=>m.Name=="OpenTalkWindow");var oi=open.Body.GetILProcessor();var entry=open.Body.Instructions[0];

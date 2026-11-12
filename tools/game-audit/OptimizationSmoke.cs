@@ -25,6 +25,13 @@ internal static class OptimizationSmoke
         VoicePlayback.Opening(10);int reopened=VoicePlayback.StartOutput(44100);VoicePlayback.BeginBlock(10);VoicePlayback.Record(700002,0,1764,1);
         VoicePlayback.Presented(clock,999999);if(VoicePlayback.Reveal(700002,1,100)!=0)throw new InvalidDataException("Stale device epoch advanced a new voice");
         VoicePlayback.StopOutput(reopened);if(VoicePlayback.Fraction(.25,700002,1)!=.25)throw new InvalidDataException("No-output timing fallback changed");
+        VoiceStartQueue.Reset();int playedCallbacks=0;
+        var startPrepared=VoiceStartQueue.Wrap<int>(_=>playedCallbacks++);startPrepared(7);
+        if(playedCallbacks!=0)throw new InvalidDataException("Prepared speech began before dialog presentation");
+        VoiceStartQueue.Presented();if(playedCallbacks!=1)throw new InvalidDataException("Prepared speech did not begin after presentation");
+        var obsolete=VoiceStartQueue.Wrap<int>(_=>playedCallbacks++);VoiceStartQueue.Reset();obsolete(8);VoiceStartQueue.Presented();
+        if(playedCallbacks!=1)throw new InvalidDataException("Cancelled session started stale dialogue speech");
+        Console.WriteLine("PASS prepared dialogue starts after presented frame; ended sessions discard late voice callbacks");
         var owner=new object();int callbacks=0;var complete=ClipJobs.Subscribe<int>(owner,4,_=>callbacks++,out bool first);
         ClipJobs.Subscribe<int>(owner,4,_=>callbacks++,out bool second);complete(7);
         if(!first||second||callbacks!=2)throw new InvalidDataException("Duplicate voice jobs were not coalesced");
@@ -75,7 +82,7 @@ internal static class OptimizationSmoke
             var args=new object[]{700003,0,11,17,scale,0,0,0,0,fade,0,true};initial.CopyTo(fb,0);SwitchRaster.UseNative=false;talkType.GetMethod("DrawUiScaled",f)!.Invoke(talk,args);var expected=(uint[])fb.Clone();
             initial.CopyTo(fb,0);SwitchRaster.UseNative=true;talkType.GetMethod("DrawUiScaled",f)!.Invoke(talk,args);if(!fb.SequenceEqual(expected))throw new InvalidDataException("Native scaled UI arithmetic differs");scaleCases++;
         }
-        foreach(var pair in new[]{(mt,"DrawMoses"),(mt,"SwitchMosesFade"),(talkType,"OpenTalkWindow"),(wt,"LoadClip")})RuntimeHelpers.PrepareMethod(pair.Item1.GetMethod(pair.Item2,f)!.MethodHandle);
+        foreach(var pair in new[]{(mt,"DrawMoses"),(mt,"SwitchMosesFade"),(talkType,"OpenTalkWindow"),(talkType,"StartTalkWindowVoice"),(wt,"LoadClip")})RuntimeHelpers.PrepareMethod(pair.Item1.GetMethod(pair.Item2,f)!.MethodHandle);
         SwitchRaster.UseNative=false;
         Console.WriteLine("PASS native Bink RDFT bit-exact against actual decoder: "+fftCases+" cases; device PCM dialogue clock, reopen/mute and coalesced voice jobs");
         Console.WriteLine("PASS native Moses fade matches extracted original: "+fadeCases+" cases; real-time transition and suspend behavior");

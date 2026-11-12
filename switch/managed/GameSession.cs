@@ -8,6 +8,7 @@ internal static class GameSession
 {
     internal static int Start(LauncherSettings settings, Action<string> log, Func<int>? presentedFrames = null, LoadedGame? preloaded = null)
     {
+        VoiceStartQueue.Reset();
         StartupMetrics.Reset(log);
         string report = Path.Combine(settings.Root, "game-start.txt");
         // Persist before entering the game and before calling native logging.
@@ -75,6 +76,7 @@ internal static class GameSession
         }
         finally
         {
+            VoiceStartQueue.Reset();
             FrameProfiler.Flush();
             Record("Game frames presented: " + (presentedFrames?.Invoke() ?? 0));
             AppContext.SetData("APP_CONTEXT_BASE_DIRECTORY", oldBase);

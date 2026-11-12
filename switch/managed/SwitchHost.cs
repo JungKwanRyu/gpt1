@@ -31,7 +31,7 @@ internal sealed class SwitchHost(bool desktop) : IHost
     public void SwapBuffers()
     {
         if (Native.wog_swap() == 0) throw new InvalidOperationException("Game buffer presentation failed");
-        if (gameActive) FrameProfiler.Presented();
+        if (gameActive) { FrameProfiler.Presented(); VoiceStartQueue.Presented(); }
         if (gameActive && ++Frames == 1) Program.Log("PASS GAME HOST FRAME PRESENTED (frame content and gameplay unverified)");
     }
 
