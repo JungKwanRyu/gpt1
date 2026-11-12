@@ -40,14 +40,35 @@ internal static class MosesPatches
         if(reads.Length!=2)throw new InvalidDataException("Moses background row access changed");
         var dst=UiScalePatches.Local(draw,reads[0].Previous.Previous);var src=UiScalePatches.Local(draw,reads[1].Previous.Previous);
         var body=reads[0].Previous.Previous;var back=code.Skip(code.IndexOf(pixel)).First(i=>ReferenceEquals(i.Operand,body));
-        var begin=body.Previous.Previous.Previous;var after=back.Next;
-        if(begin.OpCode!=OpCodes.Ldc_I4_0)throw new InvalidDataException("Moses row loop initialization changed");
+        var outer=code.Skip(code.IndexOf(back)+1).First(i=>i.OpCode.FlowControl==FlowControl.Cond_Branch&&i.Operand is Instruction target&&code.IndexOf(target)<code.IndexOf(i));
+        var outerBody=(Instruction)outer.Operand;
+        var max=code.Take(code.IndexOf(outerBody)).Last(i=>i.Operand is MethodReference m&&m.Name=="Max"&&m.DeclaringType.FullName=="System.Math");
+        var begin=max.Previous.Previous.Previous;var after=outer.Next;
+        if(begin.OpCode!=OpCodes.Ldc_I4_0||max.Previous.OpCode!=OpCodes.Neg)throw new InvalidDataException("Moses background loop boundary changed");
+        var bg=code.First(i=>i.Operand is FieldReference f&&f.Name=="_mosesBg");var array=UiScalePatches.Local(draw,bg.Next);
+        VariableDefinition Coordinate(string name)=>UiScalePatches.Local(draw,code.Take(code.IndexOf(bg)).First(i=>i.Operand is FieldReference f&&f.Name==name&&f.DeclaringType.FullName==origin.ReturnType.FullName).Next);
+        var x=Coordinate("Item1");var y=Coordinate("Item2");
+        var xMax=code.Skip(code.IndexOf(bg)).Take(code.IndexOf(max)-code.IndexOf(bg)).First(i=>i.Operand is MethodReference m&&m.Name=="Max"&&m.DeclaringType.FullName=="System.Math");
+        var bgStart=xMax.Previous.Previous;
+        if(bgStart.OpCode!=OpCodes.Ldc_I4_0)throw new InvalidDataException("Moses background rectangle changed");
+        var bgReference=new MethodDefinition("SwitchOriginalMosesBackground",MethodAttributes.Assembly,module.TypeSystem.Void);owner.Methods.Add(bgReference);bgReference.Body.InitLocals=true;
+        bgReference.Parameters.Add(new ParameterDefinition(array.VariableType));bgReference.Parameters.Add(new ParameterDefinition(module.TypeSystem.Int32));bgReference.Parameters.Add(new ParameterDefinition(module.TypeSystem.Int32));
+        var bgVars=draw.Body.Variables.ToDictionary(v=>v,v=>new VariableDefinition(v.VariableType));foreach(var v in bgVars.Values)bgReference.Body.Variables.Add(v);
+        var bi=bgReference.Body.GetILProcessor();for(int n=0;n<3;n++){bi.Emit(OpCodes.Ldarg,bgReference.Parameters[n]);bi.Emit(OpCodes.Stloc,bgVars[new[]{array,x,y}[n]]);}
+        var bgRegion=code.Skip(code.IndexOf(bgStart)).Take(code.IndexOf(after)-code.IndexOf(bgStart)).ToArray();var bgMap=bgRegion.ToDictionary(i=>i,i=>Instruction.Create(OpCodes.Nop));var bgRet=Instruction.Create(OpCodes.Ret);
+        foreach(var old in bgRegion){var copy=bgMap[old];copy.OpCode=old.OpCode;copy.Operand=old.Operand switch{
+            VariableDefinition v=>bgVars[v],Instruction i=>i==after?bgRet:bgMap[i],Instruction[] targets=>targets.Select(i=>i==after?bgRet:bgMap[i]).ToArray(),_=>old.Operand};bgReference.Body.Instructions.Add(copy);}
+        bi.Append(bgRet);bgReference.Body.MaxStackSize=draw.Body.MaxStackSize;PlatformPatches.ExpandShortBranches(bgReference);
+        var bgFast=new MethodDefinition("SwitchMosesBackground",MethodAttributes.Assembly,module.TypeSystem.Void);owner.Methods.Add(bgFast);
+        foreach(var parameter in bgReference.Parameters)bgFast.Parameters.Add(new ParameterDefinition(parameter.ParameterType));var bf=bgFast.Body.GetILProcessor();
+        bf.Emit(OpCodes.Ldarg_0);bf.Emit(OpCodes.Ldfld,host);for(int n=0;n<3;n++)bf.Emit(OpCodes.Ldarg,bgFast.Parameters[n]);bf.Emit(OpCodes.Call,window.Methods.Single(m=>m.Name=="SwitchOpaqueBackdrop"));bf.Emit(OpCodes.Ret);
         var row=code.Skip(code.IndexOf(begin)).Take(code.IndexOf(after)-code.IndexOf(begin)).ToHashSet();
-        var load=writer.Create(OpCodes.Ldloc,src);writer.InsertBefore(begin,load);writer.InsertBefore(begin,writer.Create(OpCodes.Ldloc,dst));
-        writer.InsertBefore(begin,writer.Create(OpCodes.Call,module.ImportReference(typeof(UiScaleRaster).GetMethod(nameof(UiScaleRaster.CopyOpaqueSpan))!)));
+        var load=writer.Create(OpCodes.Ldarg_0);writer.InsertBefore(begin,load);writer.InsertBefore(begin,writer.Create(OpCodes.Ldfld,host));
+        writer.InsertBefore(begin,writer.Create(OpCodes.Ldloc,array));writer.InsertBefore(begin,writer.Create(OpCodes.Ldloc,x));writer.InsertBefore(begin,writer.Create(OpCodes.Ldloc,y));
+        writer.InsertBefore(begin,writer.Create(OpCodes.Call,window.Methods.Single(m=>m.Name=="SwitchOpaqueBackdrop")));
         foreach(var instruction in code.Where(i=>!row.Contains(i)).ToArray())if(instruction.Operand is Instruction jump&&row.Contains(jump)){
-            if(jump!=begin)throw new InvalidDataException("External branch into Moses background row");instruction.Operand=load;}
+            if(jump!=begin)throw new InvalidDataException("External branch into Moses background");instruction.Operand=load;}
         foreach(var old in row)writer.Remove(old);PlatformPatches.ExpandShortBranches(draw);
-        log("PASS Moses background native rows and native crossfade/black/blue fade; transition follows elapsed active time at 30 ticks/sec; original fade retained");
+        log("PASS Moses background single native blit and native crossfade/black/blue fade; transition follows elapsed active time at 30 ticks/sec; original fade retained");
     }
 }

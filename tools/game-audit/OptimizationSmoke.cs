@@ -40,6 +40,14 @@ internal static class OptimizationSmoke
             initial.CopyTo(fb,0);SwitchRaster.UseNative=true;mt.GetMethod("SwitchMosesFade",f)!.Invoke(New(),null);
             if(!fb.SequenceEqual(expected))throw new InvalidDataException("Native Moses transition differs from actual original: "+mode+" phase="+phase);fadeCases++;
         }
+        uint[] background=Enumerable.Range(0,640*480).Select(i=>unchecked((uint)(i*64139+1234))).ToArray();
+        foreach(var at in new[]{(0,0),(-17,-13),(width-10,height-20),(width+1,height+1)}){
+            object m=RuntimeHelpers.GetUninitializedObject(mt);mt.GetFields(f).Single(x=>x.FieldType==wt).SetValue(m,w);
+            initial.CopyTo(fb,0);mt.GetMethod("SwitchOriginalMosesBackground",f)!.Invoke(m,new object[]{background,at.Item1,at.Item2});var expected=(uint[])fb.Clone();
+            initial.CopyTo(fb,0);SwitchRaster.UseNative=true;mt.GetMethod("SwitchMosesBackground",f)!.Invoke(m,new object[]{background,at.Item1,at.Item2});
+            if(!fb.SequenceEqual(expected))throw new InvalidDataException("Moses background native pixels differ from extracted original");
+        }
+        Console.WriteLine("PASS Moses single native background blit equals extracted original at normal, negative, edge and outside origins");
         var key=new object();int remain=MosesRaster.Step(key,15,0,null,false,true);remain=MosesRaster.Step(key,remain,.4,null,false,true);
         if(remain!=3||MosesRaster.Step(key,remain,.5,null,false,true)!=0)throw new InvalidDataException("Moses fade duration depends on rendered frame count");
         var paused=new object();remain=MosesRaster.Step(paused,15,0,null,false,true);if(MosesRaster.Step(paused,remain,100,null,false,true)!=15)throw new InvalidDataException("Moses transition jumped after suspend");

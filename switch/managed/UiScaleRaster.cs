@@ -26,14 +26,6 @@ public static class UiScaleRaster
         fixed(uint* d=dst,s=src)wog_ui_scaled(d,width,s,sw,sh,left,top,w,h,x0,y0,x1,y1,fade,tint);
         return true;
     }
-    public static unsafe void CopyOpaqueSpan(Span<uint> source,Span<uint> destination)
-    {
-        if(source.Length!=destination.Length)throw new ArgumentException("Opaque row shape changed");
-        if(SwitchRaster.UseNative){fixed(uint* s=source,d=destination)wog_blit_opaque(d,destination.Length,1,s,source.Length,1,0,0);}
-        else for(int i=0;i<source.Length;i++)destination[i]=source[i]|0xff000000;
-    }
     [DllImport("WogSwitch",CallingConvention=CallingConvention.Cdecl)]
     private static extern unsafe void wog_ui_scaled(uint* dst,int dw,uint* src,int sw,int sh,int left,int top,int w,int h,int x0,int y0,int x1,int y1,int fade,int tint);
-    [DllImport("WogSwitch",CallingConvention=CallingConvention.Cdecl)]
-    private static extern unsafe void wog_blit_opaque(uint* dst,int dw,int dh,uint* src,int sw,int sh,int dx,int dy);
 }
