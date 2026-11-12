@@ -117,6 +117,25 @@ internal static class StreamingTalkSmoke
         wt.GetField("_lastTime", flags)!.SetValue(window, .2); wt.GetField("_realTime", flags)!.SetValue(window, 100.0);
         advance.Invoke(talk, new object[] { spoken, 6 });
         if ((int)tw.GetField("Revealed", flags)!.GetValue(spoken)! > shown + 1) throw new InvalidDataException("Actual voiced text jumped after a long absence");
+        // Queued tail audio remains the text clock even after the mixer voice ends.
+        VoicePlayback.Opening(0);int outputClock=VoicePlayback.StartOutput(44100);
+        VoicePlayback.BeginBlock(0);VoicePlayback.Record(123,0,1764,1);
+        var synced=Activator.CreateInstance(tw,true)!;
+        foreach(var pair in new (string,object)[]{("Clean",new string('가',100)),("CharLine",new int[100]),("MaxLines",3),
+            ("Voice",123),("VoiceTag",123),("VoiceLoaded",1),("VoiceStarted",true),("VoiceSeconds",1f)})tw.GetField(pair.Item1,flags)!.SetValue(synced,pair.Item2);
+        wt.GetField("_lastTime",flags)!.SetValue(window,10.0);wt.GetField("_realTime",flags)!.SetValue(window,500.0);
+        advance.Invoke(talk,new object[]{synced,0});
+        VoicePlayback.Presented(outputClock,882);
+        wt.GetField("_lastTime",flags)!.SetValue(window,10.1);wt.GetField("_realTime",flags)!.SetValue(window,500.4);
+        advance.Invoke(talk,new object[]{synced,12});
+        if((int)tw.GetField("Revealed",flags)!.GetValue(synced)!=2)throw new InvalidDataException("Actual dialogue did not follow device PCM position");
+        VoicePlayback.BeginBlock(1);VoicePlayback.Record(123,42336,44100,1);effects.Clear();
+        advance.Invoke(talk,new object[]{synced,15});
+        if((int)tw.GetField("Revealed",flags)!.GetValue(synced)!=2)throw new InvalidDataException("Text finished before queued voice tail reached device");
+        VoicePlayback.Presented(outputClock,3528);advance.Invoke(talk,new object[]{synced,18});
+        if((int)tw.GetField("Revealed",flags)!.GetValue(synced)!=100)throw new InvalidDataException("Text failed to finish after final PCM was played");
+        VoicePlayback.StopOutput(outputClock);
+        Console.WriteLine("PASS actual voiced text follows device PCM and waits for queued tail after mixer voice ends");
         var ct = game.GetType("DuelDx.CutscenePlayer", true)!;
         var cut = Activator.CreateInstance(ct, flags, null, new[] { window }, null)!;
         string moviePath = Path.GetTempFileName();

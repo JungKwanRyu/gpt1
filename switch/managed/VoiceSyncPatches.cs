@@ -10,7 +10,9 @@ internal static class VoiceSyncPatches
         var advance=talk.Methods.Single(m=>m.Name=="AdvanceTalk");var il=advance.Body.GetILProcessor();
         var divide=advance.Body.Instructions.Single(i=>i.OpCode==OpCodes.Div&&i.Previous.OpCode==OpCodes.Conv_R8&&i.Previous.Previous.Operand is FieldReference f&&f.Name=="VoiceSeconds");
         var next=divide.Next;
-        il.InsertBefore(next,il.Create(OpCodes.Ldarg_1));il.InsertBefore(next,il.Create(OpCodes.Ldfld,w.Fields.Single(f=>f.Name=="VoiceTag")));
+        var fraction=il.Create(OpCodes.Ldarg_1);il.InsertBefore(next,fraction);
+        foreach(var jump in advance.Body.Instructions)if(ReferenceEquals(jump.Operand,next))jump.Operand=fraction;
+        il.InsertBefore(next,il.Create(OpCodes.Ldfld,w.Fields.Single(f=>f.Name=="VoiceTag")));
         il.InsertBefore(next,il.Create(OpCodes.Ldarg_1));il.InsertBefore(next,il.Create(OpCodes.Ldfld,w.Fields.Single(f=>f.Name=="VoiceSeconds")));il.InsertBefore(next,il.Create(OpCodes.Conv_R8));
         il.InsertBefore(next,il.Create(OpCodes.Call,module.ImportReference(typeof(VoicePlayback).GetMethod(nameof(VoicePlayback.Fraction))!)));
         PlatformPatches.ExpandShortBranches(advance);

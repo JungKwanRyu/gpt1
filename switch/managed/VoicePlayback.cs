@@ -7,7 +7,7 @@ namespace WogSwitch;
 public static class VoicePlayback
 {
     private readonly record struct Segment(long Output,double Start,double End,double Rate);
-    private sealed class Track { internal readonly Segment[] Parts=new Segment[8]; internal int Count,Next; }
+    private sealed class Track { internal readonly Segment[] Parts=new Segment[8]; internal int Count,Next; internal bool Canceled; }
     private static readonly object gate=new();
     private static readonly Dictionary<int,Track> tracks=new();
     private static readonly Queue<int> order=new();
@@ -33,12 +33,15 @@ public static class VoicePlayback
                 while(order.Count>512)tracks.Remove(order.Dequeue());
             }
             int last=(t.Next+7)%8;
+            if(t.Count>0&&start==0&&t.Parts[last].End>0&&t.Parts[last].Output!=block){t.Count=t.Next=0;}
+            t.Canceled=false;last=(t.Next+7)%8;
             if(t.Count>0&&t.Parts[last].Output==block)t.Parts[last]=new(block,start,end,step*44100);
             else {t.Parts[t.Next]=new(block,start,end,step*44100);t.Next=(t.Next+1)%8;t.Count=Math.Min(8,t.Count+1);}
         }
     }
+    public static void Cancel(int tag) { lock(gate)if(tracks.TryGetValue(tag,out var t))t.Canceled=true; }
     public static double Fraction(double fallback,int tag,double duration)
-    { double ratio=Ratio(tag,duration); return double.IsNaN(ratio)?fallback:ratio; }
+    { lock(gate)if(active!=0&&!tracks.ContainsKey(tag))return fallback>=1?1:0; double ratio=Ratio(tag,duration); return double.IsNaN(ratio)?fallback:ratio; }
     public static int Reveal(int tag,double duration,int characters)
     { double ratio=Ratio(tag,duration); return double.IsNaN(ratio)?-1:(int)Math.Clamp(ratio*characters,0,characters); }
     private static double Ratio(int tag,double duration)
@@ -47,6 +50,7 @@ public static class VoicePlayback
         {
             if(active==0)return double.NaN;
             if(!tracks.TryGetValue(tag,out var t)||t.Count==0)return 0;
+            if(t.Canceled)return 1;
             double source=0;double hz=44100;
             for(int i=0;i<t.Count;i++){
                 var p=t.Parts[(t.Next-t.Count+i+8)%8];hz=p.Rate;

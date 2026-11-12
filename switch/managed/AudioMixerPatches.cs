@@ -56,9 +56,18 @@ internal static class AudioMixerPatches
         oi.InsertBefore(first,oi.Create(OpCodes.Ldarg_0));oi.InsertBefore(first,oi.Create(OpCodes.Ldfld,mixer.Fields.Single(f=>f.Name=="_buffersWritten")));
         oi.InsertBefore(first,oi.Create(OpCodes.Call,module.ImportReference(typeof(VoicePlayback).GetMethod(nameof(VoicePlayback.BeginBlock))!)));
         var pump=mixer.Methods.Single(m=>m.Name=="Pump");var pi=pump.Body.GetILProcessor();var open=pump.Body.Instructions.Single(i=>i.Operand is MethodReference m&&m.Name=="OpenDevice");
-        pi.InsertBefore(open,pi.Create(OpCodes.Ldarg_0));pi.InsertBefore(open,pi.Create(OpCodes.Ldfld,mixer.Fields.Single(f=>f.Name=="_buffersWritten")));
+        var opening=pi.Create(OpCodes.Ldarg_0);pi.InsertBefore(open,opening);
+        foreach(var jump in pump.Body.Instructions)if(ReferenceEquals(jump.Operand,open))jump.Operand=opening;
+        pi.InsertBefore(open,pi.Create(OpCodes.Ldfld,mixer.Fields.Single(f=>f.Name=="_buffersWritten")));
         pi.InsertBefore(open,pi.Create(OpCodes.Call,module.ImportReference(typeof(VoicePlayback).GetMethod(nameof(VoicePlayback.Opening))!)));
         PlatformPatches.ExpandShortBranches(one);PlatformPatches.ExpandShortBranches(pump);
+        var stop=mixer.Methods.Single(m=>m.Name=="StopEffect");var si=stop.Body.GetILProcessor();
+        foreach(var ret in stop.Body.Instructions.Where(i=>i.OpCode==OpCodes.Ret).ToArray()){
+            ret.OpCode=OpCodes.Ldarg_1;ret.Operand=null;
+            var cancel=si.Create(OpCodes.Call,module.ImportReference(typeof(VoicePlayback).GetMethod(nameof(VoicePlayback.Cancel))!));
+            si.InsertAfter(ret,cancel);si.InsertAfter(cancel,si.Create(OpCodes.Ret));
+        }
+        PlatformPatches.ExpandShortBranches(stop);
         log("PASS native per-voice PCM interpolation with original fallback; playback clock, voice state and locking policy preserved");
     }
 }
