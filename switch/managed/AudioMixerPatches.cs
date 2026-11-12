@@ -42,6 +42,23 @@ internal static class AudioMixerPatches
         core.Name = "SwitchOriginalMix";
         il.Emit(OpCodes.Call, core); il.Emit(OpCodes.Ret); wrapper.Body.MaxStackSize = 16;
         foreach (var call in callers) call.Operand = wrapper;
+        var initial = new VariableDefinition(module.TypeSystem.Double); wrapper.Body.Variables.Add(initial);
+        var enter = wrapper.Body.Instructions[0];
+        il.InsertBefore(enter,il.Create(OpCodes.Ldarg_0));il.InsertBefore(enter,il.Create(OpCodes.Ldfld,voice.Fields.Single(f=>f.Name=="Position")));il.InsertBefore(enter,il.Create(OpCodes.Stloc,initial));
+        foreach(var ret in wrapper.Body.Instructions.Where(i=>i.OpCode==OpCodes.Ret).ToArray()){
+            ret.OpCode=OpCodes.Stloc;ret.Operand=alive;
+            var tail=new List<Instruction>{il.Create(OpCodes.Ldarg_0),il.Create(OpCodes.Ldfld,voice.Fields.Single(f=>f.Name=="Tag")),il.Create(OpCodes.Ldloc,initial),
+                il.Create(OpCodes.Ldarg_0),il.Create(OpCodes.Ldfld,voice.Fields.Single(f=>f.Name=="Position")),il.Create(OpCodes.Ldarg_0),il.Create(OpCodes.Ldfld,voice.Fields.Single(f=>f.Name=="Step")),
+                il.Create(OpCodes.Call,module.ImportReference(typeof(VoicePlayback).GetMethod(nameof(VoicePlayback.Record))!)),il.Create(OpCodes.Ldloc,alive),il.Create(OpCodes.Ret)};
+            var after=ret;foreach(var instruction in tail){il.InsertAfter(after,instruction);after=instruction;}
+        }
+        var one=mixer.Methods.Single(m=>m.Name=="MixOne");var oi=one.Body.GetILProcessor();var first=one.Body.Instructions[0];
+        oi.InsertBefore(first,oi.Create(OpCodes.Ldarg_0));oi.InsertBefore(first,oi.Create(OpCodes.Ldfld,mixer.Fields.Single(f=>f.Name=="_buffersWritten")));
+        oi.InsertBefore(first,oi.Create(OpCodes.Call,module.ImportReference(typeof(VoicePlayback).GetMethod(nameof(VoicePlayback.BeginBlock))!)));
+        var pump=mixer.Methods.Single(m=>m.Name=="Pump");var pi=pump.Body.GetILProcessor();var open=pump.Body.Instructions.Single(i=>i.Operand is MethodReference m&&m.Name=="OpenDevice");
+        pi.InsertBefore(open,pi.Create(OpCodes.Ldarg_0));pi.InsertBefore(open,pi.Create(OpCodes.Ldfld,mixer.Fields.Single(f=>f.Name=="_buffersWritten")));
+        pi.InsertBefore(open,pi.Create(OpCodes.Call,module.ImportReference(typeof(VoicePlayback).GetMethod(nameof(VoicePlayback.Opening))!)));
+        PlatformPatches.ExpandShortBranches(one);PlatformPatches.ExpandShortBranches(pump);
         log("PASS native per-voice PCM interpolation with original fallback; playback clock, voice state and locking policy preserved");
     }
 }

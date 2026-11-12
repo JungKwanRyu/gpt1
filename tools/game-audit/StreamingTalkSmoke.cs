@@ -94,8 +94,8 @@ internal static class StreamingTalkSmoke
         tw.GetField("Voice", flags)!.SetValue(text, 123); tw.GetField("VoiceStarted", flags)!.SetValue(text, true);
         wt.GetField("_gameSpeed", flags)!.SetValue(window, 100);
         tt.GetMethod("AdvanceTalk", flags)!.Invoke(talk, new object[] { text, 12 });
-        if ((int)tw.GetField("Revealed", flags)!.GetValue(text)! == 0 || (int)tw.GetField("VoiceLoaded", flags)!.GetValue(text)! != 0)
-            throw new InvalidDataException("Voice preparation still blocks first text or voice state was altered");
+        if ((int)tw.GetField("Revealed", flags)!.GetValue(text)! != 0 || (int)tw.GetField("VoiceLoaded", flags)!.GetValue(text)! != 0)
+            throw new InvalidDataException("Pending voice revealed text ahead of PCM or voice state was altered");
         // Voice-paced reveal uses the local clock, while a long absence is excluded.
         object fakeMixer = RuntimeHelpers.GetUninitializedObject(mixerType);
         mixerType.GetField("_gate", flags)!.SetValue(fakeMixer, new object());
@@ -142,6 +142,6 @@ internal static class StreamingTalkSmoke
         wt.GetMethod("DrawBattleTalk", flags)!.Invoke(window, new object[] { true }); // Tlk is uninitialized: duplicate would throw.
         SwitchRaster.UseNative = false;
         Console.WriteLine("PASS streaming PCM original-equivalence, prebuffer, unpublished-tail guard, underrun/refill, monotonic movie clock, mute/end/cancel: " + cases + " cases");
-        Console.WriteLine("PASS actual pending-voice talk reveals Korean text; field suppresses duplicate battle talk; short-frame text recovery excludes suspend and pause");
+        Console.WriteLine("PASS actual pending-voice talk waits for synchronized PCM; field suppresses duplicate battle talk; short-frame text recovery excludes suspend and pause");
     }
 }

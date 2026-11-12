@@ -14,3 +14,4 @@ int wog_pcm_write(WogPcm *state, const uint8_t *bytes, size_t count, WogPcmEmit 
 
 int wog_mix_voice(const int16_t *samples, int frames, int channels, double step,
     float left, float right, int loop, double *position, int *laps, int32_t *mix, int output_frames);
+int wog_audio_rdft(float *x, double *re, double *im, const int *rev, const double *cosine, const double *sine, int n);

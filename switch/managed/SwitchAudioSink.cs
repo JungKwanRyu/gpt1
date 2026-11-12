@@ -16,12 +16,12 @@ internal sealed class SwitchAudioSink : IAudioSink
 {
     private readonly object gate = new();
     private readonly IPcmDevice device;
-    private readonly int token, frameBytes;
+    private readonly int token, frameBytes, clockId;
     private bool closed;
     private long lastPlayed;
 
-    private SwitchAudioSink(IPcmDevice device, int token, int frameBytes)
-    { this.device = device; this.token = token; this.frameBytes = frameBytes; }
+    private SwitchAudioSink(IPcmDevice device, int token, int frameBytes, int rate)
+    { this.device = device; this.token = token; this.frameBytes = frameBytes; clockId = VoicePlayback.StartOutput(rate); }
 
     internal static IAudioSink? Open(int rate, int channels, int bits, IPcmDevice? device = null)
     {
@@ -30,12 +30,12 @@ internal sealed class SwitchAudioSink : IAudioSink
         device ??= NativePcmDevice.Instance;
         int token = device.Open(rate, channels, bits);
         if (token == 0) { Host.Log("AUDIO OPEN FAILED: " + rate + " Hz / " + channels + " channels / " + bits + " bits; device unavailable (no audio output)"); return null; }
-        return new SwitchAudioSink(device, token, channels * bits / 8);
+        return new SwitchAudioSink(device, token, channels * bits / 8, rate);
     }
 
     public long PlayedFrames
     {
-        get { lock (gate) { if (!closed) lastPlayed = Math.Max(lastPlayed, device.Played(token)); return lastPlayed; } }
+        get { lock (gate) { if (!closed) lastPlayed = Math.Max(lastPlayed, device.Played(token)); VoicePlayback.Presented(clockId,lastPlayed); return lastPlayed; } }
     }
 
     public void Write(ReadOnlySpan<byte> pcm)
@@ -44,6 +44,7 @@ internal sealed class SwitchAudioSink : IAudioSink
         {
             if (closed || pcm.IsEmpty) return;
             if (pcm.Length % frameBytes != 0 || !device.Write(token, pcm)) Disable("PCM write failed or incomplete input frame");
+            if (!closed) VoicePlayback.Presented(clockId,device.Played(token));
         }
     }
 
@@ -54,13 +55,13 @@ internal sealed class SwitchAudioSink : IAudioSink
 
     private void Disable(string reason)
     {
-        device.Close(token); closed = true;
+        device.Close(token); closed = true; VoicePlayback.StopOutput(clockId);
         Host.Log("AUDIO OUTPUT STOPPED: " + reason + "; no exception is raised on the mixer thread");
     }
 
     public void Dispose()
     {
-        lock (gate) if (!closed) { device.Close(token); closed = true; }
+        lock (gate) if (!closed) { device.Close(token); closed = true; VoicePlayback.StopOutput(clockId); }
     }
 
     private sealed class NativePcmDevice : IPcmDevice

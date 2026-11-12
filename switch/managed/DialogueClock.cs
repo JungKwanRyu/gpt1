@@ -37,7 +37,7 @@ public static class DialogueClock
         var state = states.GetValue(window, _ => new State());
         if (voice > 0 && loaded == 0 && !state.Waiting)
         {
-            state.Waiting = true; state.WaitStart = Stopwatch.GetTimestamp(); Host.Log("TALK voice-load begin; text may reveal while audio loads");
+            state.Waiting = true; state.WaitStart = Stopwatch.GetTimestamp(); Host.Log("TALK voice-load begin; synchronized text waits for ready audio");
         }
         if (state.Waiting && loaded != 0)
         {

@@ -85,3 +85,24 @@ int wog_mix_voice(const int16_t *samples, int frames, int channels, double step,
     *position = pos;
     return 1;
 }
+
+int wog_audio_rdft(float *x, double *re, double *im, const int *rev, const double *cosine, const double *sine, int n)
+{
+    if (!x || !re || !im || !rev || !cosine || !sine || n < 2 || n > 16384 || (n & (n - 1))) return 0;
+    for (int i=0;i<n;i++) if (rev[i]<0 || rev[i]>=n) return 0;
+    for (int i=0;i<n/2;i++) { re[i]=x[2*i]; im[i]=x[2*i+1]; }
+    for (int i=n/2;i<n;i++) re[i]=im[i]=0;
+    for (int i=0;i<n;i++) { int j=rev[i]; if(j>i){double t=re[i];re[i]=re[j];re[j]=t;t=im[i];im[i]=im[j];im[j]=t;} }
+    for (int size=2;size<=n;size<<=1) {
+        int half=size/2,step=n/size;
+        for(int start=0;start<n;start+=size) for(int k=0;k<half;k++) {
+            int a=start+k,b=a+half;double wr=cosine[k*step],wi=-sine[k*step];
+            volatile double p=re[b]*wr,q=im[b]*wi,r=re[b]*wi,s=im[b]*wr;
+            double tr=p-q,ti=r+s;
+            re[b]=re[a]-tr; im[b]=im[a]-ti; re[a]+=tr; im[a]+=ti;
+        }
+    }
+    double dc=x[0]*0.5,nyq=x[1]*0.5;
+    for(int i=0;i<n;i++) x[i]=(float)(re[i]-dc+((i&1)?-nyq:nyq));
+    return 1;
+}

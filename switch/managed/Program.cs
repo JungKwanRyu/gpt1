@@ -25,7 +25,7 @@ internal static class Program
             // when the embedded runtime formats its own error messages.
             AppContext.SetSwitch("System.Resources.UseSystemResourceKeys", true);
             if (prepareSd) return DesktopPreparation.Run(args[1], Log);
-            Log("Managed checkpoint 0.5.15: incremental movie audio and field dialogue timing");
+            Log("Managed checkpoint 0.5.16: native Bink audio, PCM-synchronized dialogue and Moses transitions");
             string root = desktop ? Path.GetTempPath() : "/switch/WogSwitchProbe";
             var layout = new GameLayout(Path.Combine(root, "release"), Path.Combine(root, "patched"),
                 Path.Combine(root, "save"), null, Path.Combine(root, "managed/WogShim.dll"));
@@ -43,7 +43,7 @@ internal static class Program
             string shimPath = Path.Combine(AppContext.BaseDirectory, "WogShim.dll");
             if (desktop) using (AssemblyDefinition assembly = AssemblyDefinition.ReadAssembly(shimPath))
                 Require(assembly.Name.Name == "WogShim", "Mono.Cecil original DLL inspection");
-            Log("PASS Mono.Cecil 0.11.6: original WogShim DLL parsed");
+            if (desktop) Log("PASS Mono.Cecil 0.11.6: original WogShim DLL parsed");
 
             if (desktop)
             {

@@ -7,6 +7,17 @@
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="../../switch/managed/NativeAudioDecoder.cs" Link="NativeAudioDecoder.cs" />
+    <Compile Include="../../switch/managed/DecoderPatches.cs" Link="DecoderPatches.cs" />
+    <Compile Include="../../switch/managed/VoicePlayback.cs" Link="VoicePlayback.cs" />
+    <Compile Include="../../switch/managed/ClipJobs.cs" Link="ClipJobs.cs" />
+    <Compile Include="../../switch/managed/VoiceSyncPatches.cs" Link="VoiceSyncPatches.cs" />
+    <Compile Include="../../switch/managed/UiScaleRaster.cs" Link="UiScaleRaster.cs" />
+    <Compile Include="../../switch/managed/UiScalePatches.cs" Link="UiScalePatches.cs" />
+    <Compile Include="../../switch/managed/MosesRaster.cs" Link="MosesRaster.cs" />
+    <Compile Include="../../switch/managed/MosesPatches.cs" Link="MosesPatches.cs" />
+    <Compile Include="../../switch/managed/FieldListPatches.cs" Link="FieldListPatches.cs" />
+
     <Compile Include="../../switch/managed/StreamedAudio.cs" Link="StreamedAudio.cs" />
     <Compile Include="../../switch/managed/StreamingPlaybackPatches.cs" Link="StreamingPlaybackPatches.cs" />
     <Compile Include="../../switch/managed/DialogueClock.cs" Link="DialogueClock.cs" />

@@ -18,6 +18,13 @@ internal static class StartupAssetsSmoke
         Check(false,"partial cache falls back even when Txr and characters exist");
         File.WriteAllText(Path.Combine(saved,"characters/test.chr"),"SYNTHETIC");
         Check(true,"complete extracted manifest reuses assets across SD path changes");
+        File.SetLastWriteTimeUtc(manifest,File.GetLastWriteTimeUtc(manifest).AddSeconds(2));
+        Check(true,"timestamp-only asset copy reuses verified identical shipped content");
+        File.WriteAllText(Path.Combine(shipped,"changed.json"),"SYNTHETIC NEW INPUT");
+        File.SetLastWriteTimeUtc(manifest,File.GetLastWriteTimeUtc(manifest).AddSeconds(2));
+        Check(false,"timestamp change with different shipped content triggers ordinary preparation");
+        File.Delete(Path.Combine(shipped,"changed.json"));
+        Check(true,"timestamp-only stamp normalization preserves complete cache");
         File.Delete(originalTxr);Check(false,"part1-only or missing-part2 setup retains original mode selection");File.WriteAllText(originalTxr,"SYNTHETIC ORIGINAL");
         File.Delete(Path.Combine(saved,"characters/test.chr"));Check(false,"deleted extracted asset triggers ordinary repair");
         File.WriteAllText(Path.Combine(saved,"characters/test.chr"),"SYNTHETIC");

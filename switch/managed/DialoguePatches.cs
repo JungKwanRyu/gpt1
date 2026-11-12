@@ -14,6 +14,8 @@ internal static class DialoguePatches
         method.Parameters.Add(new ParameterDefinition("layer", ParameterAttributes.None, module.TypeSystem.Boolean)); window.Methods.Add(method);
         var il = method.Body.GetILProcessor(); var ret = il.Create(OpCodes.Ret);
         il.Emit(OpCodes.Ldarg_0); il.Emit(OpCodes.Call, window.Methods.Single(m => m.Name == "get_FieldOpen")); il.Emit(OpCodes.Brtrue, ret);
+        il.Emit(OpCodes.Ldarg_0); il.Emit(OpCodes.Call, window.Methods.Single(m=>m.Name=="get_Mos"));
+        il.Emit(OpCodes.Ldfld,module.GetType("DuelDx.MosesScene").Fields.Single(f=>f.Name=="_mosesOpen"));il.Emit(OpCodes.Brtrue,ret);
         il.Emit(OpCodes.Ldarg_0); il.Emit(OpCodes.Call, (MethodReference)receiver.Operand); il.Emit(OpCodes.Ldarg_1);
         il.Emit(OpCodes.Callvirt, (MethodReference)draw.Operand); il.Append(ret);
         receiver.OpCode = OpCodes.Nop; receiver.Operand = null; draw.OpCode = OpCodes.Call; draw.Operand = method;
@@ -59,13 +61,6 @@ internal static class DialoguePatches
             }
             writer.InsertBefore(after, writer.Create(OpCodes.Call, module.ImportReference(typeof(DialogueClock).GetMethod(nameof(DialogueClock.Now))!)));
         }
-        // loaded==0 formerly returned without displaying text. Route that return
-        // to the existing unvoiced typewriter, retaining the pending voice state.
-        var waitingReturn = advance.Body.Instructions.Single(i => i.OpCode == OpCodes.Ret &&
-            (i.Previous.OpCode == OpCodes.Brtrue || i.Previous.OpCode == OpCodes.Brtrue_S));
-        // The typewriter begins at the load of textTick preceding TalkStepTicks math.
-        var normal = advance.Body.Instructions.Last(i => i.OpCode == OpCodes.Ldarg_2);
-        waitingReturn.OpCode = OpCodes.Br; waitingReturn.Operand = normal;
         PlatformPatches.ExpandShortBranches(advance);
         advance.Body.MaxStackSize = Math.Max(advance.Body.MaxStackSize, 12);
         foreach (var item in new[] { (talk, "DrawTalkWindow", 0), (talk, "DrawTalkLines", 1), (talk, "DrawUiScaled", 2), (talk, "DrawTalkFace", 3),
@@ -82,6 +77,6 @@ internal static class DialoguePatches
             PlatformPatches.ExpandShortBranches(target);
             target.Body.MaxStackSize = Math.Max(2, target.Body.MaxStackSize);
         }
-        log("PASS field talk drawn once; text reveals during voice preparation; local text clock catches short frame stalls, excludes long absences; nested detail timers enabled");
+        log("PASS field/Moses talk drawn once; pending voice text waits for synchronized output; local unvoiced clock excludes long absences; nested detail timers enabled");
     }
 }

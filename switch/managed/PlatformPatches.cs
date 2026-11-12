@@ -30,6 +30,10 @@ internal static class PlatformPatches
             FieldRasterPatches.Apply(module, log);
             SharedRasterPatches.Apply(module, log);
             DialoguePatches.Apply(module, log);
+            VoiceSyncPatches.Apply(module, log);
+            UiScalePatches.Apply(module, log);
+            MosesPatches.Apply(module, log);
+            FieldListPatches.Apply(module, log);
             VideoPlaybackPatches.Apply(module, log);
             StreamingPlaybackPatches.ApplyGame(module, log);
             EffectRasterPatches.Apply(module, log);
@@ -48,6 +52,7 @@ internal static class PlatformPatches
             }
             RewriteHostCalls(assembly.MainModule);
             AddAssetDiagnostics(assembly.MainModule);
+            DecoderPatches.Apply(assembly.MainModule, log);
             AudioMixerPatches.Apply(assembly.MainModule, log);
             StreamingPlaybackPatches.ApplyAssets(assembly.MainModule, log);
             WriteAndReplace(assembly, path);

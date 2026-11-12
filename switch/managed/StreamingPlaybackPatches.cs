@@ -100,6 +100,6 @@ internal static class StreamingPlaybackPatches
         ui.InsertBefore(target, ui.Create(OpCodes.Ldsfld, module.GetType("DuelDx.GameWindow").Fields.Single(f => f.Name == "Muted")));
         ui.InsertBefore(target, ui.Create(OpCodes.Call, clock)); update.Body.MaxStackSize += 3;
         PlatformPatches.ExpandShortBranches(update);
-        log("PASS Bink starts with 750ms PCM prebuffer; movie source clock bounded by mixed PCM during decoder refill; muted/no-audio paths preserved");
+        log("PASS Bink starts with 1s PCM prebuffer; movie source clock bounded by mixed PCM during decoder refill; muted/no-audio paths preserved");
     }
 }

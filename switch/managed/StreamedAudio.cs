@@ -39,7 +39,7 @@ public static class StreamedAudio
             state.Channels = channels; state.Rate = rate;
             if (finished) state.Complete = true;
             if (firstFrame && !state.First) { state.First = true; Log(state, "first-video-frame"); }
-            bool ready = firstFrame && (state.Complete || (long)state.Samples >= Math.Min(samples.Length, (long)rate * channels * 3 / 4));
+            bool ready = firstFrame && (state.Complete || (long)state.Samples >= Math.Min(samples.Length, (long)rate * channels));
             if (ready && !state.Ready) { state.Ready = true; Log(state, "initial-audio-ready"); }
             return ready;
         }
@@ -83,7 +83,7 @@ public static class StreamedAudio
             int available = state.Samples / channels;
             if (loop && !state.Complete) { alive = true; return true; }
             double ahead = available - position;
-            if (state.Rebuffer && !state.Complete && ahead < state.Rate * .75) { alive = true; return true; }
+            if (state.Rebuffer && !state.Complete && ahead < state.Rate) { alive = true; return true; }
             state.Rebuffer = false;
             int count = state.Complete ? 1764 : (int)Math.Clamp(Math.Ceiling((available - 1 - position) / step), 0, 1764);
             if (count > 0 && available > 0)

@@ -184,3 +184,27 @@ void wog_field_wipe(uint32_t *dst,int dw,int dh,const uint32_t *under,const uint
   dst[dy*dw+dx]=color;
  }
 }
+
+void wog_ui_scaled(uint32_t *dst,int dw,const uint32_t *src,int sw,int sh,int left,int top,int width,int height,int x0,int y0,int x1,int y1,int fade,int tint)
+{
+ for(int y=y0;y<y1;y++)for(int x=x0;x<x1;x++){
+  uint32_t c=src[(int64_t)(y-top)*sh/height*sw+(int64_t)(x-left)*sw/width];if(!(c&0xff000000u))continue;
+  uint32_t d=dst[y*dw+x],out=0xff000000u;
+  for(int s=0;s<=16;s+=8){int v=(c>>s)&255;
+   if(tint>=0){v=v*32/(32-tint);if(v>255)v=255;}
+   if(fade<256)v=(v*fade+((d>>s)&255)*(256-fade))/256;
+   out|=(uint32_t)v<<s;
+  }dst[y*dw+x]=out;
+ }
+}
+
+void wog_moses_fade(uint32_t *dst,int dw,const uint32_t *from,int cam_y,int x0,int y0,int x1,int y1,int mode,int power)
+{
+ for(int y=y0;y<y1;y++)for(int x=x0;x<x1;x++){
+  int i=y*dw+x;uint32_t c=dst[i],out;
+  if(mode==2){unsigned b=c&255;b+=(255-b)*power/31;out=(c&0xffffff00u)|b;}
+  else {out=0xff000000u;uint32_t a=mode==0?from[(y-cam_y)*dw+x]:0;
+   for(int s=0;s<=16;s+=8){unsigned v=(c>>s)&255;v=mode==0?((((a>>s)&255)*power+v*(256-power))>>8):v*(31-power)/31;out|=v<<s;}
+  }dst[i]=out;
+ }
+}
