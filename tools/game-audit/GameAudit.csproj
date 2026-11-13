@@ -7,6 +7,10 @@
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="../../switch/managed/TextCache.cs" />
+    <Compile Include="../../switch/managed/TextCachePatches.cs" />
+    <Compile Include="../../switch/managed/AudioReuse.cs" />
+    <Compile Include="../../switch/managed/AudioReusePatches.cs" />
     <Compile Include="../../switch/managed/BattleRaster.cs" />
     <Compile Include="../../switch/managed/UiDataCache.cs" />
     <Compile Include="../../switch/managed/UiDataCachePatches.cs" />

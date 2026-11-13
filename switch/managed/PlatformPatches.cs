@@ -35,6 +35,7 @@ internal static class PlatformPatches
             MosesPatches.Apply(module, log);
             FieldListPatches.Apply(module, log);
             UiDataCachePatches.Apply(module, log);
+            TextCachePatches.Apply(module, log);
             VideoPlaybackPatches.Apply(module, log);
             StreamingPlaybackPatches.ApplyGame(module, log);
             EffectRasterPatches.Apply(module, log);
@@ -54,6 +55,7 @@ internal static class PlatformPatches
             RewriteHostCalls(assembly.MainModule);
             AddAssetDiagnostics(assembly.MainModule);
             DecoderPatches.Apply(assembly.MainModule, log);
+            AudioReusePatches.Apply(assembly.MainModule, log);
             AudioMixerPatches.Apply(assembly.MainModule, log);
             StreamingPlaybackPatches.ApplyAssets(assembly.MainModule, log);
             WriteAndReplace(assembly, path);
