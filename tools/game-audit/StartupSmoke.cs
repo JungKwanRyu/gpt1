@@ -62,6 +62,7 @@ internal static class StartupSmoke
         PlaybackEffectSmoke.Run(game);
         StreamingTalkSmoke.Run(game, output);
         OptimizationSmoke.Run(game);
+        UiDataCacheSmoke.Run(game);
         MixerKernelSmoke.Run();
         RealMixerSmoke.Run();
         AssetDiagnosticsSmoke.Run(root, output, settings);

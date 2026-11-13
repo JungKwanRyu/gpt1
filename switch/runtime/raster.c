@@ -97,6 +97,52 @@ void wog_blit_masked(uint32_t *dst, int dw, const uint32_t *src, int sw, int lef
     }
 }
 
+void wog_battle_masked(uint32_t *dst, int dw, const uint32_t *src, int sw, int left, int top,
+                       int x0, int y0, int x1, int y1, int fade, int additive, int n, int level, int screen,
+                       const uint8_t *r, const uint8_t *g, const uint8_t *b)
+{
+    // All pointers are pinned and rectangle/array bounds checked by BattleRaster.
+    for (int y = y0; y < y1; y++) {
+        const uint32_t *s = src + (int64_t)(y - top) * sw + x0 - left;
+        uint32_t *d = dst + (int64_t)y * dw + x0;
+        for (int x = x0; x < x1; x++, s++, d++) {
+            uint32_t c = *s, alpha = c >> 24;
+            if (!alpha) continue;
+            if (n < 31 || screen) {
+                uint32_t mapped = c & UINT32_C(0xff000000);
+                for (int shift = 0; shift <= 16; shift += 8) {
+                    unsigned v = (c >> shift) & 255;
+                    v = n < 31 ? (n * v + (31 - n) * level) / 31 : v + level * (255 - v) / 255;
+                    mapped |= v << shift;
+                }
+                c = mapped;
+            }
+            if (r) {
+                unsigned rr = r[(c >> 19) & 31], gg = g[(c >> 11) & 31], bb = b[(c >> 3) & 31];
+                c = (c & UINT32_C(0xff000000)) | (rr << 3 | rr >> 2) << 16 | (gg << 3 | gg >> 2) << 8 | (bb << 3 | bb >> 2);
+            }
+            if (additive) { *d = add_color(*d, c, (unsigned)fade); continue; }
+            if (fade < 256) { c = mix_color(*d, c, (unsigned)fade, 256); alpha = 255; }
+            *d = alpha == 255 ? c : mix_color(*d, c, alpha, 255);
+        }
+    }
+}
+
+void wog_battle_flash(uint32_t *dst, int length, uint32_t k, uint32_t add, int tint, int crit)
+{
+    for (int i = 0; i < length; i++) {
+        uint32_t c = dst[i];
+        if (tint)
+            c = UINT32_C(0xff000000) | (((c >> 16 & 255) * k + add) / 31) << 16 |
+                (((c >> 8 & 255) * k + add) / 31) << 8 | ((c & 255) * k + add) / 31;
+        if (crit == 1)
+            c = UINT32_C(0xff000000) | (16 * 255 / 31) << 16 | (16 * (255 - (c >> 8 & 255)) / 31) << 8 | 16 * (255 - (c & 255)) / 31;
+        else if (crit == 2)
+            c = UINT32_C(0xff000000) | ((c >> 16 & 255) / 2 + 90) << 16 | ((c >> 8 & 255) / 2 + 90) << 8 | ((c & 255) / 2 + 90);
+        dst[i] = c;
+    }
+}
+
 void wog_field_backdrop(uint32_t *dst, int dw, int dh, const uint32_t *bg, int bw, int bh,
                         int cx, int cy, int ox, int oy, const WogFieldPiece *pieces, int count)
 {

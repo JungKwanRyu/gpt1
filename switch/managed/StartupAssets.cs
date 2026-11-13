@@ -16,11 +16,18 @@ internal static class StartupAssets
             if(GameLoader.Digest(cached)!=GameLoader.Digest(manifest))return Fallback("shipped manifest content changed");
             string[] fields=File.ReadAllText(stamp).Split('|');
             if(fields.Length!=3||fields[0].Length==0||!long.TryParse(fields[2],out _))return Fallback("invalid extraction stamp");
+            // The game resolves transferred/NFD character directory names by
+            // their existing unique character ID. Use that identical resolver
+            // here: a raw NFC path can otherwise reject a complete cache on
+            // every launch and repeat preparation of every manifest entry.
+            PlatformGameBridge.BeginAssetPreparation();
             int count=0;
             foreach(string raw in File.ReadLines(manifest)){
                 string rel=raw.Trim();if(rel.Length==0||rel[0]=='#')continue;
                 string full=Path.GetFullPath(rel.Replace('\\',Path.DirectorySeparatorChar).Replace('/',Path.DirectorySeparatorChar),candidate);
-                if(!LauncherSettings.Contains(candidate,full)||!File.Exists(full))return Fallback("manifest file missing or unsafe: "+rel);count++;
+                if(!LauncherSettings.Contains(candidate,full))return Fallback("manifest file missing or unsafe: "+rel);
+                full=PlatformGameBridge.ResolveAssetPath(full);
+                if(!LauncherSettings.Contains(candidate,full)||!PlatformGameBridge.PreparedAssetExists(full))return Fallback("manifest file missing or unsafe: "+rel);count++;
             }
             if(count==0)return Fallback("empty extraction manifest");
             string ticks=File.GetLastWriteTimeUtc(manifest).Ticks.ToString(System.Globalization.CultureInfo.InvariantCulture);
@@ -28,7 +35,8 @@ internal static class StartupAssets
                 // ZIP extraction/SD copies can change timestamps. Reuse only if
                 // every shipped input is byte-identical to its cached copy.
                 foreach(string file in Directory.EnumerateFiles(shipped,"*",SearchOption.AllDirectories)){
-                    string other=Path.Combine(candidate,Path.GetRelativePath(shipped,file));
+                    string other=PlatformGameBridge.ResolveAssetPath(Path.Combine(candidate,Path.GetRelativePath(shipped,file)));
+                    if(!LauncherSettings.Contains(candidate,other))return Fallback("unsafe shipped asset path");
                     if(!File.Exists(other)||new FileInfo(file).Length!=new FileInfo(other).Length||GameLoader.Digest(file)!=GameLoader.Digest(other))
                         return Fallback("timestamp changed and shipped content differs");
                 }

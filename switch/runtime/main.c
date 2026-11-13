@@ -409,7 +409,7 @@ static void *bridge_symbol(void *handle, const char *name, char **err, void *use
     EXPORT(wog_running); EXPORT(wog_width); EXPORT(wog_height); EXPORT(wog_is_gles); EXPORT(wog_pad);
     EXPORT(wog_upload_bitmap); EXPORT(wog_draw_bitmap);
     EXPORT(wog_dialog_begin); EXPORT(wog_dialog_end);
-    EXPORT(wog_audio_rdft); EXPORT(wog_ui_scaled); EXPORT(wog_moses_fade); EXPORT(wog_mix_voice); EXPORT(wog_audio_open); EXPORT(wog_audio_write); EXPORT(wog_audio_played);
+    EXPORT(wog_battle_masked); EXPORT(wog_battle_flash); EXPORT(wog_audio_rdft); EXPORT(wog_ui_scaled); EXPORT(wog_moses_fade); EXPORT(wog_mix_voice); EXPORT(wog_audio_open); EXPORT(wog_audio_write); EXPORT(wog_audio_played);
     EXPORT(wog_audio_flush); EXPORT(wog_audio_close); EXPORT(wog_blit_opaque);
     EXPORT(wog_draw_frame); EXPORT(wog_fill_rect); EXPORT(wog_blit_masked); EXPORT(wog_field_backdrop); EXPORT(wog_transform); EXPORT(wog_blit_scaled); EXPORT(wog_field_wipe);
 #undef EXPORT

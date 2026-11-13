@@ -17,3 +17,6 @@ void wog_blit_scaled(uint32_t *dst,int dw,int dh,const uint32_t *src,int sw,int 
 void wog_field_wipe(uint32_t *dst,int dw,int dh,const uint32_t *under,const uint32_t *over,int ox,int oy,int mode,int way,int tick,int ticks);
 void wog_ui_scaled(uint32_t *dst,int dw,const uint32_t *src,int sw,int sh,int left,int top,int width,int height,int x0,int y0,int x1,int y1,int fade,int tint);
 void wog_moses_fade(uint32_t *dst,int dw,const uint32_t *from,int cam_y,int x0,int y0,int x1,int y1,int mode,int power);
+void wog_battle_masked(uint32_t *dst,int dw,const uint32_t *src,int sw,int left,int top,int x0,int y0,int x1,int y1,
+                       int fade,int additive,int n,int level,int screen,const uint8_t *r,const uint8_t *g,const uint8_t *b);
+void wog_battle_flash(uint32_t *dst,int length,uint32_t k,uint32_t add,int tint,int crit);

@@ -34,6 +34,7 @@ internal static class PlatformPatches
             UiScalePatches.Apply(module, log);
             MosesPatches.Apply(module, log);
             FieldListPatches.Apply(module, log);
+            UiDataCachePatches.Apply(module, log);
             VideoPlaybackPatches.Apply(module, log);
             StreamingPlaybackPatches.ApplyGame(module, log);
             EffectRasterPatches.Apply(module, log);

@@ -22,12 +22,6 @@ internal static class SharedRasterPatches
             if (name == "BlitMasked")
             {
                 if (core.Parameters.Count != 10) throw new InvalidDataException("BlitMasked signature changed");
-                foreach (int at in new[] { 5, 6 })
-                {
-                    il.Emit(OpCodes.Ldarga, wrapper.Parameters[at]);
-                    il.Emit(OpCodes.Call, new MethodReference("get_HasValue", module.TypeSystem.Boolean, wrapper.Parameters[at].ParameterType) { HasThis = true });
-                    il.Emit(OpCodes.Brtrue, fallback);
-                }
                 il.Emit(OpCodes.Ldarg, wrapper.Parameters[9]); il.Emit(OpCodes.Brtrue, fallback);
             }
             il.Emit(OpCodes.Ldarg_0); il.Emit(OpCodes.Ldfld, window.Fields.Single(f => f.Name == "_fb"));
@@ -57,8 +51,8 @@ internal static class SharedRasterPatches
             }
             else
             {
-                foreach (int at in new[] { 0, 1, 2, 3, 4, 7, 8 }) il.Emit(OpCodes.Ldarg, wrapper.Parameters[at]);
-                il.Emit(OpCodes.Call, module.ImportReference(typeof(SwitchRaster).GetMethod(nameof(SwitchRaster.TryMasked))!));
+                foreach (int at in new[] { 0, 1, 2, 3, 4, 5, 6, 7, 8 }) il.Emit(OpCodes.Ldarg, wrapper.Parameters[at]);
+                il.Emit(OpCodes.Call, module.ImportReference(typeof(BattleRaster).GetMethod(nameof(BattleRaster.TryMasked))!));
             }
             il.Emit(OpCodes.Brfalse, fallback); il.Emit(OpCodes.Ret);
             il.Append(fallback);

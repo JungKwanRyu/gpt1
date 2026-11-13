@@ -47,7 +47,15 @@ internal static class SharedRasterSmoke
             foreach (double fade in new[] { -1.0, 0.0, 0.25, 0.7, 0.999, 1.0, 2.0, double.NaN })
                 foreach (bool add in new[] { false, true })
                     Compare(maskedOriginal, masked, new object?[] { source, 23, 19, point.Item1, point.Item2, null, null, fade, add, null });
-        // The tinted branch deliberately keeps the original implementation.
+        byte[] red=Enumerable.Range(0,32).Select(i=>(byte)(31-i)).ToArray();
+        byte[] green=Enumerable.Range(0,32).Select(i=>(byte)(i/2)).ToArray();
+        byte[] blue=Enumerable.Range(0,32).Select(i=>(byte)i).ToArray();
+        foreach(var point in new[]{(0,0),(-12,-9),(width-7,height-5)})
+        foreach(int mode in Enumerable.Range(0,16)) foreach(int level in new[]{0,16,31})
+        foreach(double fade in new[]{.25,1.0}) foreach(bool add in new[]{false,true})
+        foreach(object? status in new object?[]{null,(red,green,blue)})
+            Compare(maskedOriginal,masked,new object?[]{source,23,19,point.Item1,point.Item2,(mode,level),status,fade,add,null});
+        // Compare the unchanged fallback with native processing.
         Compare(maskedOriginal, masked, new object?[] { source, 23, 19, 0, 0, (3, 16), null, 0.5, false, null });
         SwitchRaster.UseNative = false;
         Compare(original, draw, new[] { frame, 0, 0, Enum.ToObject(blendType, 2), (object)0.5 });
